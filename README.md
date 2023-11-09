@@ -1,6 +1,7 @@
 # HiHi
 
 >[Hi]		[Hi]
+>
 >\\(°▽°)	(°▽°)/
 
 An engine-agnostic P2P high-level multiplayer solution written in C#.
@@ -145,3 +146,9 @@ HiHi currently includes engine bindings for [Godot](https://godotengine.org/). M
 - [ ] Democracy
 - [ ] NAT punching
 - [ ] Rendezvous
+
+
+
+## Thanks
+
+Includes code from [Netstack](https://github.com/nxrighthere/NetStack/) licensed under MIT.
