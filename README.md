@@ -1,4 +1,6 @@
-![HiHi Color Long](Images/HiHi_Color_Long_128h.png) `WIP`
+![HiHi Color Long](Images/HiHi_Color_Long_128h.png) 
+
+`Work in progress`
 
 An engine-agnostic P2P high-level multiplayer solution written in C#.
 
