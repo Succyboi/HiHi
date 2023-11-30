@@ -27,15 +27,22 @@ using System.Threading;
  */
 namespace HiHi {
     public abstract class PeerTransport {
+        public const int THREAD_TIMER_INTERVAL_MS = 5;
+
         public bool Running { get; private set; }
         public bool ReceiveBroadcast { get; set; }
+        public bool IncomingMessagesAvailable => !IncomingMessages.IsEmpty;
         public ConcurrentQueue<PeerMessage> IncomingMessages { get; private set; }
         public ConcurrentQueue<PeerMessage> OutgoingMessages { get; private set; }
         public virtual int MaxPacketSize => 0;
-        public abstract string LocalIPEndPoint { get; }
+        public abstract string LocalEndPoint { get; }
+        public abstract string LocalAddress { get; }
+        public abstract int Port { get; }
 
         private Thread incomingThread;
+        private ThreadTimer incomingThreadTimer = new ThreadTimer(THREAD_TIMER_INTERVAL_MS);
         private Thread outgoingThread;
+        private ThreadTimer outgoingThreadTimer = new ThreadTimer(THREAD_TIMER_INTERVAL_MS);
 
         public PeerTransport() {
             IncomingMessages = new ConcurrentQueue<PeerMessage>();
@@ -77,13 +84,21 @@ namespace HiHi {
 
         private void IncomingRoutine() {
             while (Running) {
+                incomingThreadTimer.Reset();
+
                 ReceiveIncomingMessages();
+
+                incomingThreadTimer.Sleep();
             }
         }
 
         private void OutgoingRoutine() {
             while(Running) {
+                outgoingThreadTimer.Reset();
+
                 SendOutgoingMessages();
+
+                outgoingThreadTimer.Sleep();
             }
         }
     }

@@ -39,7 +39,7 @@ namespace HiHi {
         ushort INetworkObject.UniqueID { get; set; }
 
         ushort? INetworkObject.ownerID { get; set; }
-        ObjectAbandonmentPolicy INetworkObject.abandonmentPolicy { get; set; } = HiHiConfiguration.DEFAULT_ABANDONMENT_POLICY;
+        NetworkObjectAbandonmentPolicy INetworkObject.abandonmentPolicy { get; set; } = HiHiConfiguration.DEFAULT_ABANDONMENT_POLICY;
         SyncObject[] INetworkObject.syncObjects { get; set; }
         byte INetworkObject.syncObjectCount { get; set; }
 

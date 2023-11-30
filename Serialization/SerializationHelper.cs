@@ -160,13 +160,5 @@ namespace HiHi.Serialization {
         }
 
         #endregion
-
-        #region Misc
-
-        public static string ToEndPointString(this IPEndPoint endpoint) {
-            return $"{endpoint.Address}:{endpoint.Port}";
-        }
-
-        #endregion
     }
 }

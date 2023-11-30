@@ -1,6 +1,6 @@
-﻿using HiHi.Serialization;
-using System.Net;
-using System.Net.Sockets;
+﻿using System;
+using System.Diagnostics;
+using System.Threading;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -25,45 +25,25 @@ using System.Net.Sockets;
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Discovery {
-    public class UDPBroadcastFinder : PeerFinder {
-        public const int BROADCAST_RECEIVE_PORT = HiHiConfiguration.BROADCAST_RECEIVE_PORT;
+namespace HiHi.Common {
+    public class ThreadTimer {
+        public int IntervalMS { get; set; }
+        public int SleepDuration => Math.Max(IntervalMS - (int)stopwatch.ElapsedMilliseconds, 0);
 
-        private static IPEndPoint BROADCAST_RECEIVE_ENDPOINT = new IPEndPoint(IPAddress.Broadcast, BROADCAST_RECEIVE_PORT);
+        protected Stopwatch stopwatch = new Stopwatch();
 
-        private UdpClient broadcastClient;
-        private byte[] peerInfoDatagram;
-        private int peerInfoDatagramLength;
-
-        public UDPBroadcastFinder() : base() {
-            broadcastClient = new UdpClient();
+        public ThreadTimer(int intervalMS) {
+            this.IntervalMS = intervalMS;
         }
 
-        public override void Start() {
-            peerInfoDatagram = new byte[Peer.Transport.MaxPacketSize];
-            Peer.Transport.ReceiveBroadcast = true;
-
-            Peer.Info.Verify(Peer.Info.UniqueID, Peer.Transport.LocalEndPoint);
-
-            base.Start();
+        public void Reset() {
+            stopwatch.Restart();
         }
 
-        public override void Stop() {
-            base.Stop();
+        public void Sleep() {
+            if(SleepDuration <= 0) { return; }
 
-            Peer.Transport.ReceiveBroadcast = false;
-        }
-
-        public override void Find() {
-            if (!Peer.Info.Verified) { return; }
-
-            if(Peer.Connected) { return; }
-
-            PeerMessage message = Peer.NewMessage(PeerMessageType.Connect);
-            Peer.Info.Serialize(message.Buffer);
-            peerInfoDatagramLength = message.Buffer.ToArray(peerInfoDatagram);
-
-            broadcastClient.Send(peerInfoDatagram, peerInfoDatagramLength, BROADCAST_RECEIVE_ENDPOINT);
+            Thread.Sleep(SleepDuration);
         }
     }
 }

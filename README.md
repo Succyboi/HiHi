@@ -1,8 +1,4 @@
-# HiHi
-
->[Hi]		[Hi]
->
->\\(°▽°)	(°▽°)/
+![HiHi Color Long](Images/HiHi Color (Long 2_1)_128h.png) `WIP`
 
 An engine-agnostic P2P high-level multiplayer solution written in C#.
 
@@ -11,12 +7,6 @@ Made out of a passion for multiplayer games and spite for engine companies' anti
 Still very much a work-in-progress currently. Many features required for the development of proper multiplayer games are currently missing and examples are being worked on.
 
 [Licensed](LICENSE) under the ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4). Need a different license? Contact me @ [stupidplusplus@gmail.com](mailto:stupidplusplus@gmail.com).
-
-
-
-## Architecture
-
-`TODO add this section later. I'm gonna have lunch rn.`
 
 
 
@@ -36,13 +26,39 @@ So if we can tackle issues like security, performance and connection, we can mak
 
 When making multiplayer games with a client-server setup, you'll usually write code from 3 perspectives: The local player, the remote player and the server. Depending on your setup and/or desired optimizations, you might even have to write your client and server code separately. Using a decentralized P2P setup, you'll only write from 2 perspectives: The local player and the remote player.
 
-The code for a networked object may look something like this:
+The code for a networked enemy entity (in Godot) may look something like this:
+
+```c#
+using HiHi;
+
+public partial class Enemy : GodotNetworkObject {
+    public Sync<int> HealthSync;
+    public RPC<int> DamageRPC;
+
+    public void DoDamage(int damage) => DamageRPC.Invoke(damage, NetworkObject.OwnerID);
+
+    protected override void OnRegister() {
+        base.OnRegister();
+
+        HealthSync = new Sync<int>(this, 100);
+        DamageRPC = new RPC<int>(this);
+        DamageRPC.Action = ReceiveDamage;
+    }
+
+    private void ReceiveDamage(int damage) {
+        HealthSync.Value -= damage;
+
+        if(HealthSync.Value <= 0) {
+            NetworkObject.SyncDestroy();
+        }
+    }
+}
 
 ```
-`TODO add example code`
-```
 
-`TODO add example code for spawning/destroying objects`
+You can then spawn this enemy by calling `INetworkObject.SyncSpawn(EnemySpawnData)`.
+
+
 
 #### Performance
 
@@ -56,7 +72,7 @@ HiHi uses ownership to ensure an object's data is only transmitted once (by the 
 
 Computers behind firewalls or routers that use network address translation may be hard to reach. This problem can be circumvented by NAT punching or using services that ensure consistent P2P connections such as [Valve's Steam Datagram Relay](https://partner.steamgames.com/doc/features/multiplayer/steamdatagramrelay).
 
-**WARNING:** These solutions are yet to be implemented, currently you'll have to circumvent this problem yourself.
+**WARNING:** These solutions are yet to be thoroughly tested, currently you may have to circumvent this problem yourself.
 
 
 
@@ -72,53 +88,66 @@ There is no substitute for physically removing control over objects through the 
 
 > **Peer**
 >
-> `TODO`
+> Provides an interface that represents the local peer.
+
+> **Network**
+>
+> Describes the structure that contains all interconnected peers among the local peer.
 
 > **HiHiTime**
 >
-> `TODO`
+> Provides synchronized time information.
 
 > **NetworkObject**
 >
-> `TODO`
-
-> **Ownership**
+> The base class for networked entities that exist on all interconnected peers. Can implement SyncObjects like Sync and RPC.
 >
-> `TODO`
+> NetworkObjects can be either owned by a single peer or be shared by all peers in the network.
 
 > **Abandonment**
 >
-> `TODO`
+> When the peer that owns a NetworkObject disconnects from the network, it is abandoned. This invokes its abandonment policy, deciding which peer, if any, will become its new owner.
 
 > **Sync\<T>**
 >
-> `TODO`
+> Used to synchronize variables between peers. Bound to a NetworkObject.
 
 > **RPC**
 >
-> `TODO`
+> Used to invoke actions on remote peers.
 
 > **NetworkTransform**
 >
-> `TODO`
+> Used to synchronize a transform's position, rotation and scale between peers.
 
 > **NetworkPhysicsBody**
 >
-> `TODO`
+> Used to synchronize a physics body's position, rotation, scale, velocity and angular velocity between peers.
 
 > **Question\<T>**
 >
-> `TODO`
+> Used to request variables from remote peers.
+
+> **PeerFinder**
+>
+> The base class used for implementations that allow the local peer to discover remote peers.
+
+> **Signaler**
+>
+> The base class used for implementations that introduce peers to each other.
 
 
 
 ## Implementation
 
-HiHi currently includes engine bindings for [Godot](https://godotengine.org/). Meaning HiHi will work out of the box in that engine. If you're using a different engine you'll have to create your own bindings.
+HiHi currently includes engine bindings for [Godot](https://godotengine.org/). Meaning HiHi will work out of the box in that engine. If you're using a different engine you'll have to create your own bindings. [Unity](https://unity.com/) bindings will be provided at some point.
 
-[Unity](https://unity.com/) bindings will be provided at some point.
+Required bindings for implementation are currently:
 
-`TODO expand this section to include required scene objects.`
+- **IHelper** - *Handles the serialization and deserialization of SpawnData.*
+- **INetworkObject** - *Implements*
+- **ISpawnData** - *Serializable object containing information required to spawn objects on remote peers*
+- **MiscBindings** *(Optional)* - *Provides implicit conversion between HiHi's Vectors, Quaterions, etc and the engine's version of these objects.*
 
 
 
@@ -141,14 +170,28 @@ HiHi currently includes engine bindings for [Godot](https://godotengine.org/). M
 - [x] Questions
 - [x] Message allocation optimization
 - [x] Prettify NetworkObject implementation
-- [ ] PeerMessage sender header optimization
-- [ ] Example project
+- [x] PeerMessage sender header optimization
+- [x] Signaling
+- [x] NAT punching *To be more extensively tested.*
 - [ ] Democracy
-- [ ] NAT punching
-- [ ] Rendezvous
+- [ ] Unity Bindings
+- [ ] Example project
+- [ ] Getting started tutorial
 
 
 
 ## Thanks
 
 Includes code from [Netstack](https://github.com/nxrighthere/NetStack/) licensed under MIT.
+
+[Anti-capitalist software license](https://anticapitalist.software/) maintained by [Ramsey Nasser](https://nas.sr/) & [Everest Pipkin](https://everest-pipkin.com/).
+
+
+
+## Images
+
+| ![HiHi Color Long](Images/HiHi Color (Long 2_1)_128h.png) | ![HiHi Color Square](Images/HiHi Color (Square 1_1)_128h.png) | ![HiHi Color Square](Images/HiHi Color F___ (Square 1_1)_128h.png) |
+| --------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| ![HiHi Black Long](Images/HiHi Black (Long 2_1)_128h.png) | ![HiHi Black Square](Images/HiHi Black (Square 1_1)_128h.png) | ![HiHi Black Square](Images/HiHi Black F___ (Square 1_1)_128h.png) |
+| ![HiHi White Long](Images/HiHi White (Long 2_1)_128h.png) | ![HiHi White Square](Images/HiHi White (Square 1_1)_128h.png) | ![HiHi White Square](Images/HiHi White F___ (Square 1_1)_128h.png) |
+

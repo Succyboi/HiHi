@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using HiHi.Common;
-using HiHi.Serialization;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -31,27 +30,24 @@ namespace HiHi {
         public const int MAX_PACKET_SIZE = ushort.MaxValue - 8 /*UDP header*/ - 20 /*IPv4 header*/;
 
         public override int MaxPacketSize => MAX_PACKET_SIZE;
-        public override string LocalIPEndPoint { 
-            get { 
-                if (HiHiUtility.TryGetLocalIPAddress(out string localIp)) {
-                    return $"{localIp}:{(client.Client.LocalEndPoint as IPEndPoint).Port}";
-                }
-
-                return string.Empty;
-            } 
+        public override string LocalEndPoint { 
+            get {
+                return HiHiUtility.ToEndPointString(client.Client.LocalEndPoint as IPEndPoint);
+            }
         }
+        public override string LocalAddress => (client.Client.LocalEndPoint as IPEndPoint).Address.ToString();
+        public override int Port => (client.Client.LocalEndPoint as IPEndPoint).Port;
 
         private const int PREFERRED_RECEIVE_PORT = HiHiConfiguration.BROADCAST_RECEIVE_PORT;
 
         private UdpClient client;
-        private IPEndPoint? outgoingRemoteEndpoint = new IPEndPoint(IPAddress.Any, 0);
-        private IPEndPoint? incomingRemoteEndpoint = new IPEndPoint(IPAddress.Any, 0);
-        private readonly object clientLock = new object();
+        private IPEndPoint outgoingRemoteEndpoint = new IPEndPoint(IPAddress.Any, 0);
+        private IPEndPoint incomingRemoteEndpoint = new IPEndPoint(IPAddress.Any, 0);
+        private byte[] incomingBuffer;
         private byte[] outgoingBuffer;
 
-        public UDPTransport() : base() {
-            client = new UdpClient(HiHiUtility.GetFreePort(PREFERRED_RECEIVE_PORT));
-
+        public UDPTransport(int preferredPort = PREFERRED_RECEIVE_PORT) : base() {
+            client = new UdpClient(HiHiUtility.GetFreePort(preferredPort));
             outgoingBuffer = new byte[MAX_PACKET_SIZE];
         }
 
@@ -67,10 +63,10 @@ namespace HiHi {
             client.EnableBroadcast = ReceiveBroadcast;
 
             while (client.Available > 0) {
-                byte[] incomingBuffer;
-                lock (clientLock) {
+                try {
                     incomingBuffer = client.Receive(ref incomingRemoteEndpoint);
-                }
+                } 
+                catch (SocketException) { continue; }
 
                 if (!PeerMessage.ContainsValidHeader(incomingBuffer)) { continue; }
 
@@ -99,18 +95,19 @@ namespace HiHi {
                         if (!Peer.Network.Contains(peerID)) { continue; }
                         if (!IPEndPoint.TryParse(Peer.Network[peerID].EndPoint, out outgoingRemoteEndpoint)) { continue; }
 
-                        lock (clientLock) {
+                        try {
                             client.Send(outgoingBuffer, bufferLength, outgoingRemoteEndpoint);
                         }
+                        catch (SocketException) { continue; }
                     }
                 }
                 else {
-                    if (!Peer.Network.Contains(message.DestinationPeerID)) { continue; }
-                    if (!IPEndPoint.TryParse(Peer.Network[message.DestinationPeerID].EndPoint, out outgoingRemoteEndpoint)) { continue; }
+                    outgoingRemoteEndpoint = HiHiUtility.ParseStringToIPEndpoint(message.DestinationEndPoint);
 
-                    lock (clientLock) {
+                    try {
                         client.Send(outgoingBuffer, bufferLength, outgoingRemoteEndpoint);
                     }
+                    catch (SocketException) { continue; }
                 }
 
                 message.Return();

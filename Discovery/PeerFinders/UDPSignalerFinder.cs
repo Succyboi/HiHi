@@ -1,6 +1,5 @@
-﻿using HiHi.Serialization;
-using System.Net;
-using System.Net.Sockets;
+﻿using HiHi.Common;
+using HiHi.Serialization;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -26,44 +25,72 @@ using System.Net.Sockets;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi.Discovery {
-    public class UDPBroadcastFinder : PeerFinder {
-        public const int BROADCAST_RECEIVE_PORT = HiHiConfiguration.BROADCAST_RECEIVE_PORT;
+    public class UDPSignalerFinder : PeerFinder {
+        public string Address { get; set; }
+        public int Port { get; set; }
+        public string EndPoint => HiHiUtility.ToEndPointString(Address, Port);
 
-        private static IPEndPoint BROADCAST_RECEIVE_ENDPOINT = new IPEndPoint(IPAddress.Broadcast, BROADCAST_RECEIVE_PORT);
+        protected override int FindRoutineIntervalMS => HiHiConfiguration.SIGNALER_HEARTBEAT_SEND_INTERVAL_MS;
 
-        private UdpClient broadcastClient;
-        private byte[] peerInfoDatagram;
-        private int peerInfoDatagramLength;
-
-        public UDPBroadcastFinder() : base() {
-            broadcastClient = new UdpClient();
+        public UDPSignalerFinder(string address, int port) : base() {
+            this.Address = address;
+            this.Port = port;
         }
 
         public override void Start() {
-            peerInfoDatagram = new byte[Peer.Transport.MaxPacketSize];
-            Peer.Transport.ReceiveBroadcast = true;
+            if (Running) { return; }
 
-            Peer.Info.Verify(Peer.Info.UniqueID, Peer.Transport.LocalEndPoint);
+            Peer.Transport.ReceiveBroadcast = true;
 
             base.Start();
         }
 
         public override void Stop() {
-            base.Stop();
+            if (!Running) { return; }
 
+            SendDisconnect();
             Peer.Transport.ReceiveBroadcast = false;
+
+            base.Stop();
         }
 
         public override void Find() {
-            if (!Peer.Info.Verified) { return; }
+            if (!Peer.Info.Verified) {
+                SendVerificationRequest();
+                return;
+            }
 
-            if(Peer.Connected) { return; }
+            if (!Peer.Connected) {
+                SendRemotePeerInfoRequest();
+                return;
+            }
 
-            PeerMessage message = Peer.NewMessage(PeerMessageType.Connect);
+            SendHeartBeat();
+        }
+
+        private void SendVerificationRequest() {
+            PeerMessage message = PeerMessage.Borrow(PeerMessageType.VerifiedPeerInfoRequest, default, EndPoint);
             Peer.Info.Serialize(message.Buffer);
-            peerInfoDatagramLength = message.Buffer.ToArray(peerInfoDatagram);
 
-            broadcastClient.Send(peerInfoDatagram, peerInfoDatagramLength, BROADCAST_RECEIVE_ENDPOINT);
+            Peer.Transport.Send(message);
+        }
+
+        private void SendRemotePeerInfoRequest() {
+            PeerMessage message = PeerMessage.Borrow(PeerMessageType.RemotePeerInfoRequest, default, EndPoint);
+
+            Peer.Transport.Send(message);
+        }
+
+        private void SendHeartBeat() {
+            PeerMessage message = PeerMessage.Borrow(PeerMessageType.HeartBeat, default, EndPoint);
+
+            Peer.Transport.Send(message);
+        }
+
+        private void SendDisconnect() {
+            PeerMessage message = PeerMessage.Borrow(PeerMessageType.Disconnect, default, EndPoint);
+
+            Peer.Transport.Send(message);
         }
     }
 }

@@ -21,10 +21,10 @@
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi {
-    public enum ObjectAbandonmentPolicy {
-        RemainOwnedRandomly = 0,
-        BecomeShared = 1,
-        Destroy = 2,
+namespace HiHi.Signaling {
+    public class SignalerConnectionInfo : PeerInfo {
+        public SignalerLobby<SignalerConnectionInfo> Lobby { get; set; } = null;
+
+        public SignalerConnectionInfo() { }
     }
 }

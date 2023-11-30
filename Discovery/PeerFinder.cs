@@ -1,9 +1,10 @@
+using HiHi.Common;
 using System.Threading;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright Â© 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -23,35 +24,39 @@ using System.Threading;
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Signaling {
-    public abstract class PeerFinder {
-        public bool Running { get; private set; }
+namespace HiHi.Discovery {
+	public abstract class PeerFinder {
+		public bool Running { get; private set; }
 
-        protected virtual int FindRoutineSleepMS => 5000;
+		protected virtual int FindRoutineIntervalMS => 5000;
 
-        protected Thread thread;
+		protected Thread thread;
+		protected ThreadTimer threadTimer;
 
-        public PeerFinder() {
-            thread = new Thread(() => FindRoutine());
+		public PeerFinder() {
+			thread = new Thread(() => FindRoutine());
+			threadTimer = new ThreadTimer(FindRoutineIntervalMS);
         }
 
-        public virtual void Start() {
-            Running = true;
-            thread.Start();
-        }
+		public virtual void Start() {
+			Running = true;
+			thread.Start();
+		}
 
-        public virtual void Stop() {
-            Running = false;
-        }
+		public virtual void Stop() {
+			Running = false;
+		}
 
-        public virtual void Find() { }
+		public virtual void Find() { }
 
-        protected virtual void FindRoutine() {
-            while (Running) {
+		protected virtual void FindRoutine() {
+			while (Running) {
+				threadTimer.Reset();
+
                 Find();
 
-                Thread.Sleep(FindRoutineSleepMS);
-            }
-        }
-    }
+				threadTimer.Sleep();
+			}
+		}
+	}
 }

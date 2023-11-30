@@ -90,7 +90,7 @@ namespace HiHi {
                 Info.RegisterHeartbeat();
             }
 
-            for(int m = 0; m < Transport.IncomingMessages.Count; m++) {
+            while (Transport.IncomingMessagesAvailable) {
                 PeerMessage message = Transport.Receive();
                 ProcessPeerMessage(message);
                 message.Return();
@@ -113,7 +113,9 @@ namespace HiHi {
             }
         }
 
-        public static PeerMessage NewMessage(PeerMessageType messageType, ushort? destinationPeer = null) => PeerMessage.Borrow(messageType, Info.UniqueID, destinationPeer);
+        public static PeerMessage NewMessage(PeerMessageType messageType, ushort? destinationPeerID = null) => PeerMessage.Borrow(messageType, 
+            Info.UniqueID, 
+            destinationPeerID == null ? string.Empty : Network[destinationPeerID ?? default].EndPoint);
 
         #region Outgoing
 
@@ -193,10 +195,6 @@ namespace HiHi {
         public static void SendMessage(PeerMessage message) {
             if (!Initialized) { return; }
 
-            if (!message.DestinationAll && !Network.Contains(message.DestinationPeerID)) {
-                throw new HiHiException($"Network doesn't contain peer with ID {message.DestinationPeerID}.");
-            }
-
             Transport.Send(message);
         }
 
@@ -208,6 +206,17 @@ namespace HiHi {
             if(message.SenderPeerID == Info.UniqueID) { return; }
 
             switch (message.Type) {
+                case PeerMessageType.VerifiedPeerInfo:
+                    Info.Deserialize(message.Buffer);
+                    break;
+
+                case PeerMessageType.RemotePeerInfo:
+                    PeerInfo remotePeerInfo = new PeerInfo();
+                    remotePeerInfo.Deserialize(message.Buffer);
+
+                    Connect(remotePeerInfo, PeerConnectReason.ExternalReferrer);
+                    break;
+
                 case PeerMessageType.Connect:
                     PeerInfo incomingPeerInfo = new PeerInfo();
                     incomingPeerInfo.Deserialize(message.Buffer);
@@ -222,7 +231,10 @@ namespace HiHi {
                     break;
             }
 
-            if (!Network.Contains(message.SenderPeerID)) { return; }
+            if (!Network.Contains(message.SenderPeerID)) { 
+                OnMessageProcessed?.Invoke(message.Type, message.SenderPeerID);
+                return; 
+            }
 
             switch (message.Type) {
                 case PeerMessageType.Disconnect:

@@ -1,6 +1,6 @@
-﻿using HiHi.Serialization;
-using System.Net;
-using System.Net.Sockets;
+﻿using System;
+using System.Linq;
+using System.Collections.Generic;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -25,45 +25,43 @@ using System.Net.Sockets;
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Discovery {
-    public class UDPBroadcastFinder : PeerFinder {
-        public const int BROADCAST_RECEIVE_PORT = HiHiConfiguration.BROADCAST_RECEIVE_PORT;
+namespace HiHi.Signaling {
+    public class SignalerLobby<T> where T : PeerInfo {
+        protected static Random random = new Random();
 
-        private static IPEndPoint BROADCAST_RECEIVE_ENDPOINT = new IPEndPoint(IPAddress.Broadcast, BROADCAST_RECEIVE_PORT);
+        public int Size { get; private set; }
+        public string ConnectionKey { get; private set; }
+        public int Count => Connections.Count;
+        public bool Full => Count >= Size;
+        public bool Empty => Count <= 0;
+        public List<T> Connections { get; set; } = new List<T>();
 
-        private UdpClient broadcastClient;
-        private byte[] peerInfoDatagram;
-        private int peerInfoDatagramLength;
+        protected Queue<ushort> availableIDs = new Queue<ushort>();
 
-        public UDPBroadcastFinder() : base() {
-            broadcastClient = new UdpClient();
+        public SignalerLobby(int size, string connectionKey) {
+            this.Size = size;
+            this.ConnectionKey = connectionKey;
+
+            for(ushort i = 0; i < Size; i++) {
+                availableIDs.Enqueue((ushort)random.Next(ushort.MaxValue));
+            }
+
+            availableIDs = new Queue<ushort>(availableIDs.OrderBy(i => random.Next()));
         }
 
-        public override void Start() {
-            peerInfoDatagram = new byte[Peer.Transport.MaxPacketSize];
-            Peer.Transport.ReceiveBroadcast = true;
+        public virtual bool TryAdd(T connection) {
+            if(Full ||connection.ConnectionKey != ConnectionKey) {
+                return false;
+            }
 
-            Peer.Info.Verify(Peer.Info.UniqueID, Peer.Transport.LocalEndPoint);
-
-            base.Start();
+            connection.Verify(availableIDs.Dequeue(), connection.EndPoint);
+            Connections.Add(connection);
+            return true;
         }
 
-        public override void Stop() {
-            base.Stop();
-
-            Peer.Transport.ReceiveBroadcast = false;
-        }
-
-        public override void Find() {
-            if (!Peer.Info.Verified) { return; }
-
-            if(Peer.Connected) { return; }
-
-            PeerMessage message = Peer.NewMessage(PeerMessageType.Connect);
-            Peer.Info.Serialize(message.Buffer);
-            peerInfoDatagramLength = message.Buffer.ToArray(peerInfoDatagram);
-
-            broadcastClient.Send(peerInfoDatagram, peerInfoDatagramLength, BROADCAST_RECEIVE_ENDPOINT);
+        public virtual void Remove(T connection) {
+            availableIDs.Enqueue(connection.UniqueID);
+            Connections.Remove(connection);
         }
     }
 }

@@ -8,7 +8,7 @@ using HiHi.Serialization;
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright Â© 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -29,7 +29,7 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial class GodotHelper : Node, IHelper {
+	public partial class GodotHelper : Node, IHelper {
 		public static GodotHelper Instance { get; private set; }
 
 		[ExportGroup("Spawning")]
@@ -41,7 +41,7 @@ namespace HiHi {
 			Instance = this;
 		}
 
-        void IHelper.SerializeSpawnData(ISpawnData spawnData, BitBuffer buffer) {
+		void IHelper.SerializeSpawnData(ISpawnData spawnData, BitBuffer buffer) {
 			spawnData.Serialize(buffer);
 		}
 

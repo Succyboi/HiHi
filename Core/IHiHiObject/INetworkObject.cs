@@ -29,7 +29,8 @@ using System.Linq;
 namespace HiHi {
     public interface INetworkObject {
         public static Dictionary<ushort, INetworkObject> Instances = new Dictionary<ushort, INetworkObject>();
-        protected static List<ushort> AvailableIDs = new List<ushort>();
+        
+        protected static Queue<ushort> availableIDs = new Queue<ushort>();
         protected static IHelper helper => Peer.Helper;
 
         public Action OnOwnershipChanged { get; set; }
@@ -52,7 +53,7 @@ namespace HiHi {
         public bool Authorized => OwnerID == null || OwnedLocally;
         public bool OwnedLocally => OwnerID == Peer.Info.UniqueID;
         public bool Owned => OwnerID != null;
-        public ObjectAbandonmentPolicy AbandonmentPolicy {
+        public NetworkObjectAbandonmentPolicy AbandonmentPolicy {
             get {
                 return abandonmentPolicy;
             }
@@ -75,7 +76,7 @@ namespace HiHi {
         }
 
         protected ushort? ownerID { get; set; }
-        protected ObjectAbandonmentPolicy abandonmentPolicy { get; set; }
+        protected NetworkObjectAbandonmentPolicy abandonmentPolicy { get; set; }
         protected SyncObject[] syncObjects { get; set; }
         protected byte syncObjectCount { get; set; }
 
@@ -83,10 +84,10 @@ namespace HiHi {
             Random random = new Random();
 
             for(ushort i = 0; i < ushort.MaxValue; i++) {
-                AvailableIDs.Add(i);
+                availableIDs.Enqueue(i);
             }
 
-            AvailableIDs = AvailableIDs.OrderBy(i => random.Next()).ToList();
+            availableIDs = new Queue<ushort>(availableIDs.OrderBy(i => random.Next()));
         }
 
         public static void UpdateInstances() {
@@ -103,9 +104,8 @@ namespace HiHi {
             OwnerID = ownerID;
             OriginSpawnData = originSpawnData;
             if (Instances.ContainsKey(UniqueID)) {
-                UniqueID = AvailableIDs[0];
+                UniqueID = availableIDs.Dequeue();
             }
-            AvailableIDs.Remove(UniqueID);
             
             Instances.Add(UniqueID, this);
             Registered = true;
@@ -118,7 +118,7 @@ namespace HiHi {
         public void UnRegister() {
             if (!Registered) { return; }
 
-            AvailableIDs.Add(UniqueID);
+            availableIDs.Enqueue(UniqueID);
 
             Instances.Remove(UniqueID);
             Registered = false;
@@ -266,7 +266,7 @@ namespace HiHi {
             targetObject.HandleAbandonment();
         }
 
-        public static void SendAbandonmentPolicyChange(ushort uniqueID, ObjectAbandonmentPolicy abandonmentPolicy) {
+        public static void SendAbandonmentPolicyChange(ushort uniqueID, NetworkObjectAbandonmentPolicy abandonmentPolicy) {
             PeerMessage message = Peer.NewMessage(PeerMessageType.ObjectAbandonmentPolicyChange);
             message.Buffer.AddUShort(uniqueID);
             message.Buffer.AddByte((byte)abandonmentPolicy);
@@ -276,7 +276,7 @@ namespace HiHi {
 
         public static void ReceiveAbandonmentPolicyChange(PeerMessage message) {
             ushort uniqueID = message.Buffer.ReadUShort();
-            ObjectAbandonmentPolicy abandonmentPolicy = (ObjectAbandonmentPolicy)message.Buffer.ReadByte();
+            NetworkObjectAbandonmentPolicy abandonmentPolicy = (NetworkObjectAbandonmentPolicy)message.Buffer.ReadByte();
 
             ExistenceCheck(uniqueID);
 
@@ -302,7 +302,7 @@ namespace HiHi {
 
         protected void HandleAbandonment() {
             switch (AbandonmentPolicy) {
-                case ObjectAbandonmentPolicy.RemainOwnedRandomly:
+                case NetworkObjectAbandonmentPolicy.RemainOwnedRandomly:
                     if (!Owned) { break; }
 
                     IEnumerable<ushort> candidates = Peer.Network.PeerIDs.Concat(new ushort[1] { Peer.Info.UniqueID }).OrderBy(p => p);
@@ -311,11 +311,11 @@ namespace HiHi {
                     GiveToPeer(pickedID, true);
                     break;
 
-                case ObjectAbandonmentPolicy.BecomeShared:
+                case NetworkObjectAbandonmentPolicy.BecomeShared:
                     GiveToPeer(null, true);
                     break;
 
-                case ObjectAbandonmentPolicy.Destroy:
+                case NetworkObjectAbandonmentPolicy.Destroy:
                     DestroyLocally();
                     break;
             }
