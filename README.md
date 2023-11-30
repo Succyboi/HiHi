@@ -1,4 +1,4 @@
-![HiHi Color Long](Images/HiHi Color (Long 2_1)_128h.png) `WIP`
+![HiHi Color Long](Images/HiHi Color Long_128h.png) `WIP`
 
 An engine-agnostic P2P high-level multiplayer solution written in C#.
 
@@ -190,8 +190,8 @@ Includes code from [Netstack](https://github.com/nxrighthere/NetStack/) licensed
 
 ## Images
 
-| ![HiHi Color Long](Images/HiHi Color (Long 2_1)_128h.png) | ![HiHi Color Square](Images/HiHi Color (Square 1_1)_128h.png) | ![HiHi Color Square](Images/HiHi Color F___ (Square 1_1)_128h.png) |
-| --------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| ![HiHi Black Long](Images/HiHi Black (Long 2_1)_128h.png) | ![HiHi Black Square](Images/HiHi Black (Square 1_1)_128h.png) | ![HiHi Black Square](Images/HiHi Black F___ (Square 1_1)_128h.png) |
-| ![HiHi White Long](Images/HiHi White (Long 2_1)_128h.png) | ![HiHi White Square](Images/HiHi White (Square 1_1)_128h.png) | ![HiHi White Square](Images/HiHi White F___ (Square 1_1)_128h.png) |
+| ![HiHi Color Long](Images/HiHi Color Long_128h.png) | ![HiHi Color Square](Images/HiHi Color Square_128h.png) | ![HiHi Color Square](Images/HiHi Color F___ Square_128h.png) |
+| --------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------ |
+| ![HiHi Black Long](Images/HiHi Black Long_128h.png) | ![HiHi Black Square](Images/HiHi Black Square_128h.png) | ![HiHi Black Square](Images/HiHi Black F___ Square_128h.png) |
+| ![HiHi White Long](Images/HiHi White Long_128h.png) | ![HiHi White Square](Images/HiHi White Square_128h.png) | ![HiHi White Square](Images/HiHi White F___ Square_128h.png) |
 
