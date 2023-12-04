@@ -37,7 +37,14 @@ public partial class Enemy : GodotNetworkObject {
     public Sync<int> HealthSync;
     public RPC<int> DamageRPC;
 
-    public void DoDamage(int damage) => DamageRPC.Invoke(damage, NetworkObject.OwnerID);
+    public void DoDamage(int damage) {
+        if (NetworkObject.Authorized) {
+            ReceiveDamage(damage);
+            return;
+        }
+
+        DamageRPC.Invoke(damage, NetworkObject.OwnerID);
+    }
 
     protected override void OnRegister() {
         base.OnRegister();
@@ -55,7 +62,6 @@ public partial class Enemy : GodotNetworkObject {
         }
     }
 }
-
 ```
 
 You can then spawn this enemy by calling `INetworkObject.SyncSpawn(EnemySpawnData)`.
