@@ -1,4 +1,4 @@
-![HiHi Color Long](Images/HiHi_Color_Long_128h.png) 
+![HiHi Color Long](Images/HiHi_Color_Itch_1200w.png) 
 
 `Work in progress`
 
