@@ -28,47 +28,34 @@ using System.Collections.Generic;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public class Question<T> : SyncObject {
-        public Action<ushort> OnAsked;
-        public Action<ushort, T> OnAnswered;
+    public class Question<T> : SyncObject where T : struct {
+        public event Action<ushort> OnQuestionReceived;
+        public event Action<ushort, T> OnAnswerReceived;
 
-        public bool AllPeersAnswered => ReceivedAnswers >= expectingAnswers;
-        public int ReceivedAnswers => receivedAnswers.Count;
-        public int ExpectingAnswers => expectingAnswers;
-        /*public T Consensus => receivedAnswers
-            .GroupBy(i => i.Value)
-            .OrderByDescending(grp => grp.Count())
-            .ThenBy(grp => grp.Key)
-            .Select(grp => grp.Key)
-            .FirstOrDefault();*/
-
+        public int ExpectingAnswers => answers.Count;
+        public int ReceivedAnswers => answers.Where(i => i.Value != null).Count();
+        public Dictionary<ushort, T> Answers => answers
+            .Where(i => i.Value != null)
+            .Select(i => new KeyValuePair<ushort, T>(i.Key, i.Value ?? default))
+            .ToDictionary(i => i.Key, i => i.Value);
         public T Consensus {
             get {
-                IEnumerable<T> answers = receivedAnswers
-                    .GroupBy(i => i.Value)
+                IEnumerable<T> orderedAnswers = answers
+                    .Where(i => i.Value != null)
+                    .Select(i => i.Value ?? default)
+                    .GroupBy(i => i)
                     .OrderByDescending(grp => grp.Count())
                     .ThenBy(grp => grp.Key)
                     .Select(grp => grp.Key);
 
-                string debugString = string.Empty;
-
-                foreach (T answer in answers) {
-                    debugString += $"{answer}, ";
-                }
-
-                debugString += $"Picked {answers.FirstOrDefault()}";
-
-                Peer.SendLog(debugString);
-
-                return answers.FirstOrDefault();
+                return orderedAnswers.FirstOrDefault();
             }
         }
 
         protected override bool RequiresAuthorization => false;
 
         private Func<T> question;
-        private Dictionary<ushort, T> receivedAnswers = new Dictionary<ushort, T>();
-        private int expectingAnswers = Peer.Network.PeerIDs.Count;
+        private Dictionary<ushort, T?> answers = new Dictionary<ushort, T?>();
 
         public Question(INetworkObject parent, Func<T> question) : base(parent) {
             this.question = question;
@@ -76,40 +63,32 @@ namespace HiHi {
 
         public override void Update() { }
 
-        public void Ask(ushort? destinationPeer = null) {
-            ClearReceivedAnswers();
+        public void Ask(ushort destinationPeer) {
+            ExpectAnswer(destinationPeer);
 
             PeerMessage message = NewMessage(destinationPeer);
 
-            message.Buffer.AddBool(true);
+            message.Buffer.AddBool(true); // isQuestion
 
             Peer.SendMessage(message);
+        }
+
+        public void Clear() {
+            ClearExpectedAnswers();
         }
 
         public void Answer(ushort? destinationPeerID = null) {
+            T answer = question.Invoke();
             PeerMessage message = NewMessage(destinationPeerID);
 
-            message.Buffer.AddBool(false);
-            SerializationHelper.Serialize(question.Invoke(), message.Buffer);
+            message.Buffer.AddBool(false); // isQuestion
+            SerializationHelper.Serialize(answer, message.Buffer);
 
             Peer.SendMessage(message);
         }
 
-        public void AnswerSelf() {
-            T answer = question.Invoke();
-
-            expectingAnswers++;
-            receivedAnswers.Add(Peer.Info.UniqueID, answer);
-            OnAnswered?.Invoke(Peer.Info.UniqueID, answer);
-        }
-
-        public void ClearReceivedAnswers() {
-            receivedAnswers.Clear();
-            expectingAnswers = Peer.Network.Connections;
-        }
-
         public override void Synchronize(ushort? destinationPeerID = null) {
-            throw new HiHiException($"Question doesn't use {nameof(Synchronize)}. Instead use {nameof(Ask)} and {nameof(Answer)}.");
+            throw new HiHiException($"{nameof(Question<T>)} doesn't use {nameof(Synchronize)}. Instead use {nameof(Ask)} and {nameof(Answer)}.");
         }
 
         public override void Serialize(BitBuffer buffer) {
@@ -120,18 +99,52 @@ namespace HiHi {
             bool isQuestion = buffer.ReadBool();
 
             if (isQuestion) {
-                OnAsked?.Invoke(senderPeerID);
+                OnQuestionReceived?.Invoke(senderPeerID);
 
                 Answer();
             }
             else {
                 T receivedAnswer = SerializationHelper.Deserialize<T>(default, buffer);
 
-                receivedAnswers.Add(senderPeerID, receivedAnswer);
-                OnAnswered?.Invoke(senderPeerID, receivedAnswer);
+                RegisterAnswer(senderPeerID, receivedAnswer);
             }
 
             base.Deserialize(senderPeerID, buffer);
+        }
+
+        public override void OnRegister(byte uniqueID) {
+            base.OnRegister(uniqueID);
+
+            Peer.OnDisconnect += HandleDisconnect;
+        }
+
+        public override void OnUnregister() {
+            base.OnUnregister();
+
+            Peer.OnDisconnect -= HandleDisconnect;
+        }
+
+        protected void RegisterAnswer(ushort peerID, T answer) {
+            answers[peerID] = answer;
+            OnAnswerReceived?.Invoke(peerID, answer);
+        }
+
+        protected void ClearExpectedAnswers() {
+            answers.Clear();
+        }
+
+        protected void ExpectAnswer(ushort peerID) {
+            answers.Add(peerID, null);
+        }
+
+        protected void UnexpectAnswer(ushort peerID) {
+            if (!answers.ContainsKey(peerID)) { return; }
+
+            answers.Remove(peerID);
+        }
+
+        protected void HandleDisconnect(ushort peerID, PeerDisconnectReason reason) {
+            UnexpectAnswer(peerID);
         }
     }
 }

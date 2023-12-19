@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using HiHi.Common;
 using HiHi.Serialization;
 
 /*
@@ -51,15 +52,16 @@ namespace HiHi {
 		}
 		public ushort SelfAssignedID { get; private set; }
 		public string ConnectionKey { get; set; }
-		public string EndPoint { 
-			get {
-				return endPoint;
-			}
-			set {
-				endPoint = value;
-			}
+		public string RemoteEndPoint {
+			get => remoteEndPoint;
+			set => remoteEndPoint = value;
 		}
-		public Color Color {
+		public string LocalEndPoint {
+			get => localEndPoint;
+			set => localEndPoint = value;
+        }
+		public double Hue => UniqueID / (double)ushort.MaxValue;
+        public Color Color {
 			get {
 				if(color == null) {
 					double hue = UniqueID / (double)ushort.MaxValue * 360d;
@@ -94,16 +96,24 @@ namespace HiHi {
 		}
 		public string ColorCode => $"#{Color.R:X2}{Color.G:X2}{Color.B:X2}";
 
-		private string endPoint;
+		private string remoteEndPoint = string.Empty;
+		private string localEndPoint = string.Empty;
 		private ushort? uniqueID;
 		private Color? color;
 
 		public PeerInfo() {
-			SelfAssignedID = (ushort)random.Next(ushort.MaxValue);
-			ConnectionKey = Peer.ConnectionKey;
-
-			RegisterHeartbeat();
+            RegisterHeartbeat();
 		}
+
+		public static PeerInfo CreateLocal() {
+			PeerInfo peerInfo = new PeerInfo();
+
+            peerInfo.SelfAssignedID = (ushort)random.Next(ushort.MaxValue);
+            peerInfo.ConnectionKey = Peer.ConnectionKey;
+            peerInfo.LocalEndPoint = Peer.Transport.LocalEndPoint;
+
+			return peerInfo;
+        }
 
 		public void RegisterHeartbeat() {
 			HeartbeatTick = Environment.TickCount;
@@ -117,29 +127,35 @@ namespace HiHi {
 			Ping = ping;
 		}
 
-		public void Verify(ushort uniqueID, string endpoint) {
+		public void Verify(ushort uniqueID, string remoteEndpoint) {
 			this.UniqueID = uniqueID;
-			this.EndPoint = endpoint;
+			this.RemoteEndPoint = remoteEndpoint;
 
 			this.Verified = true;
 		}
 
-		void ISerializable.Serialize(BitBuffer buffer) {
+		public void RerollSelfAssignedID() {
+            SelfAssignedID = (ushort)random.Next(ushort.MaxValue);
+        }
+
+        void ISerializable.Serialize(BitBuffer buffer) {
 			buffer.AddUShort(UniqueID);
 			buffer.AddString(ConnectionKey);
-			buffer.AddString(EndPoint);
+			buffer.AddString(RemoteEndPoint);
+			buffer.AddString(LocalEndPoint);
 			buffer.AddBool(Verified);
 		}
 
 		void ISerializable.Deserialize(BitBuffer buffer) {
 			UniqueID = buffer.ReadUShort();
 			ConnectionKey = buffer.ReadString();
-			EndPoint = buffer.ReadString();
+			RemoteEndPoint = buffer.ReadString();
+			LocalEndPoint = buffer.ReadString();
 			Verified = buffer.ReadBool();
 		}
 
 		public override string ToString() {
-			return $"{nameof(UniqueID)} = {UniqueID}, {nameof(ConnectionKey)} = {ConnectionKey}, {nameof(EndPoint)} = {EndPoint}, {nameof(Verified)} = {Verified}";
+			return $"{nameof(UniqueID)} = {UniqueID}, {nameof(ConnectionKey)} = {ConnectionKey}, {nameof(RemoteEndPoint)} = {RemoteEndPoint}, {nameof(LocalEndPoint)} = {LocalEndPoint}, {nameof(Verified)} = {Verified}";
 		}
 	}
 }

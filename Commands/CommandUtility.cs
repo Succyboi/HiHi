@@ -1,6 +1,4 @@
-﻿using HiHi.Serialization;
-using System.Net;
-using System.Net.Sockets;
+﻿using System.Collections.Generic;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -25,45 +23,45 @@ using System.Net.Sockets;
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Discovery {
-    public class UDPBroadcastFinder : PeerFinder {
-        public const int BROADCAST_RECEIVE_PORT = HiHiConfiguration.BROADCAST_RECEIVE_PORT;
+namespace HiHi.Commands {
+    public static class CommandUtility {
+        public static bool Initialized => initialized;
 
-        private static IPEndPoint BROADCAST_RECEIVE_ENDPOINT = new IPEndPoint(IPAddress.Broadcast, BROADCAST_RECEIVE_PORT);
+        private static List<Command> commands = new List<Command>();
+        private static bool initialized = false;
 
-        private UdpClient broadcastClient;
-        private byte[] peerInfoDatagram;
-        private int peerInfoDatagramLength;
+        public static void Initialize() {
+            if (initialized) { return; }
 
-        public UDPBroadcastFinder() : base() {
-            broadcastClient = new UdpClient();
+            foreach (Command command in HiHiConfiguration.DEFAULT_COMMANDS) {
+                RegisterCommand(command);
+            }
+
+            initialized = true;
         }
 
-        public override void Start() {
-            peerInfoDatagram = new byte[Peer.Transport.MaxPacketSize];
-            Peer.Transport.ReceiveBroadcast = true;
-
-            Peer.Info.Verify(Peer.Info.UniqueID, Peer.Transport.LocalEndPoint);
-
-            base.Start();
+        public static void RegisterCommand(Command command) {
+            commands.Add(command);
         }
 
-        public override void Stop() {
-            base.Stop();
-
-            Peer.Transport.ReceiveBroadcast = false;
+        public static void UnregisterCommand(Command command) {
+            commands.Remove(command);
         }
 
-        public override void Find() {
-            if (!Peer.Info.Verified) { return; }
+        public static bool TryInvokeCommand(string commandString, out string result) {
+            if (!initialized) {
+                result = string.Empty;
+                return false;
+            }
 
-            if(Peer.Connected) { return; }
+            foreach (Command command in commands) {
+                if (command.TryInvoke(commandString, out result)) {
+                    return true;
+                }
+            }
 
-            PeerMessage message = Peer.NewMessage(PeerMessageType.Connect);
-            Peer.Info.Serialize(message.Buffer);
-            peerInfoDatagramLength = message.Buffer.ToArray(peerInfoDatagram);
-
-            broadcastClient.Send(peerInfoDatagram, peerInfoDatagramLength, BROADCAST_RECEIVE_ENDPOINT);
+            result = string.Empty;
+            return false;
         }
     }
 }

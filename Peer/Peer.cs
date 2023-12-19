@@ -1,4 +1,5 @@
-﻿using HiHi.Common;
+﻿using HiHi.Commands;
+using HiHi.Common;
 using HiHi.Serialization;
 using System;
 
@@ -32,7 +33,11 @@ namespace HiHi {
         public static string ConnectionKey {
             get => connectionKey;
             set {
-                Info.ConnectionKey = connectionKey = value;
+                connectionKey = value;
+                
+                if (Info != null) {
+                    Info.ConnectionKey = connectionKey;
+                }
             }
         }
 
@@ -42,28 +47,26 @@ namespace HiHi {
         public static Action<ushort, string> OnLog;
 
         public static bool Initialized { get; private set; }
-        public static bool Connected => Network.Connected;
+        public static bool Connected => PeerNetwork.Connected;
         public static bool AcceptingConnections { get; set; } = true;
 
         public static PeerInfo Info { get; private set; }
         public static PeerTransport Transport { get; private set; }
         public static IHelper Helper { get; private set; }
-        public static PeerNetwork Network => ISingleton<PeerNetwork>.Instance;
 
         private static string connectionKey = DEFAULT_CONNECTION_KEY;
-
-        static Peer() {
-            Info = new PeerInfo();
-        }
 
         public static void Initialize(PeerTransport transport, IHelper helper) {
             if (Initialized) { return; }
 
             HiHiTime.Reset();
+            CommandUtility.Initialize();
 
             Transport = transport;
             Helper = helper;
             Transport.Start();
+
+            Info = PeerInfo.CreateLocal();
 
             Initialized = true;
         }
@@ -98,33 +101,46 @@ namespace HiHi {
 
             INetworkObject.UpdateInstances();
 
-            foreach (ushort peerID in Network.PeerIDs) {
-                if (Network[peerID].ShouldRequestPing) {
+            foreach (ushort peerID in PeerNetwork.RemotePeerIDs) {
+                if (PeerNetwork.GetPeerInfo(peerID).ShouldRequestPing) {
                     PeerMessage pingMessage = NewMessage(PeerMessageType.PingRequest);
                     pingMessage.Buffer.AddUShort(HalfPrecision.Quantize(HiHiTime.RealTime));
                     Transport.Send(pingMessage);
 
-                    Network[peerID].RegisterPingRequest();
+                    PeerNetwork.GetPeerInfo(peerID).RegisterPingRequest();
                 }
 
-                if (Network[peerID].HeartbeatTimedOut) {
+                if (PeerNetwork.GetPeerInfo(peerID).HeartbeatTimedOut) {
                     Disconnect(peerID, PeerDisconnectReason.TimedOut);
                 }
             }
         }
 
+        public static PeerMessage NewMessage(PeerMessageType messageType, string destinationEndPoint) => PeerMessage.Borrow(messageType, 
+            Info.UniqueID, 
+            destinationEndPoint);
         public static PeerMessage NewMessage(PeerMessageType messageType, ushort? destinationPeerID = null) => PeerMessage.Borrow(messageType, 
             Info.UniqueID, 
-            destinationPeerID == null ? string.Empty : Network[destinationPeerID ?? default].EndPoint);
+            destinationPeerID == null ? string.Empty : PeerNetwork.GetPeerInfo(destinationPeerID ?? default).RemoteEndPoint);
 
         #region Outgoing
 
+        public static void Connect(string destinationEndPoint) {
+            if (!Initialized) { return; }
+            if (!AcceptingConnections) { return; }
+
+            PeerMessage connectMessage = NewMessage(PeerMessageType.Connect, destinationEndPoint);
+            Info.Serialize(connectMessage.Buffer);
+            Transport.Send(connectMessage);
+        }
+
         public static void Connect(PeerInfo destinationInfo, PeerConnectReason reason = PeerConnectReason.Unknown) {
             if (!Initialized) { return; }
-            if(!AcceptingConnections) { return; }
-            if(destinationInfo.ConnectionKey != ConnectionKey) { return; }
+            if (!AcceptingConnections) { return; }
+            if (!destinationInfo.Verified) { return; }
+            if (destinationInfo.ConnectionKey != ConnectionKey) { return; }
 
-            if (!Network.TryAddConnection(destinationInfo)) { return; }
+            if (!PeerNetwork.TryAddConnection(destinationInfo)) { return; }
 
             // Connect message
             PeerMessage connectMessage = NewMessage(PeerMessageType.Connect, destinationInfo.UniqueID);
@@ -133,7 +149,7 @@ namespace HiHi {
 
             // PeerNetwork message
             PeerMessage peernetworkMessage = NewMessage(PeerMessageType.PeerNetwork, destinationInfo.UniqueID);
-            Network.SerializeConnections(peernetworkMessage.Buffer);
+            PeerNetwork.SerializeConnections(peernetworkMessage.Buffer);
             Transport.Send(peernetworkMessage);
 
             // Time message
@@ -155,12 +171,12 @@ namespace HiHi {
 
         public static void Disconnect(ushort destinationPeerID, PeerDisconnectReason reason = PeerDisconnectReason.UnknownReason) {
             if (!Initialized) { return; }
-            if (!Network.Contains(destinationPeerID)) { return; }
+            if (!PeerNetwork.Contains(destinationPeerID)) { return; }
 
             PeerMessage message = NewMessage(PeerMessageType.Disconnect, destinationPeerID);
             Transport.Send(message);
 
-            if (!Network.TryRemoveConnection(destinationPeerID)) { return; }
+            if (!PeerNetwork.TryRemoveConnection(destinationPeerID)) { return; }
 
             OnDisconnect?.Invoke(destinationPeerID, reason);
 
@@ -177,25 +193,30 @@ namespace HiHi {
         public static void DisconnectAll() {
             if (!Initialized) { return; }
 
-            foreach (ushort connection in Network.PeerIDs) {
+            foreach (ushort connection in PeerNetwork.RemotePeerIDs) {
                 Disconnect(connection, PeerDisconnectReason.LocalPeerDisconnected);
             }
-        }
-
-        public static void SendLog(string message) {
-            if (!Initialized) { return; }
-
-            PeerMessage outgoingMessage = NewMessage(PeerMessageType.Log);
-            outgoingMessage.Buffer.AddString(message);
-            Transport.Send(outgoingMessage);
-
-            Log(Info.UniqueID, message);
         }
 
         public static void SendMessage(PeerMessage message) {
             if (!Initialized) { return; }
 
             Transport.Send(message);
+        }
+
+        public static void SendLog(string message) {
+            if (!Initialized) { return; }
+
+            if (CommandUtility.TryInvokeCommand(message, out string result)) {
+                Log(Info.UniqueID, result);
+                return;
+            }
+
+            PeerMessage outgoingMessage = NewMessage(PeerMessageType.Log);
+            outgoingMessage.Buffer.AddString(message);
+            Transport.Send(outgoingMessage);
+
+            Log(Info.UniqueID, message);
         }
 
         #endregion
@@ -220,23 +241,11 @@ namespace HiHi {
                 case PeerMessageType.Connect:
                     PeerInfo incomingPeerInfo = new PeerInfo();
                     incomingPeerInfo.Deserialize(message.Buffer);
+                    incomingPeerInfo.RemoteEndPoint = message.SenderEndPoint;
 
                     Connect(incomingPeerInfo, PeerConnectReason.ExternalReferrer);
                     break;
 
-                case PeerMessageType.Unknown:
-                default:
-                    // OOPS BROKEN MESSAGE :(
-                    // TODO LOG WARNING HERE
-                    break;
-            }
-
-            if (!Network.Contains(message.SenderPeerID)) { 
-                OnMessageProcessed?.Invoke(message.Type, message.SenderPeerID);
-                return; 
-            }
-
-            switch (message.Type) {
                 case PeerMessageType.Disconnect:
                     Disconnect(message.SenderPeerID, PeerDisconnectReason.RemotePeerDisconnected);
                     break;
@@ -288,17 +297,23 @@ namespace HiHi {
                 case PeerMessageType.ObjectAbandonmentPolicyChange:
                     INetworkObject.ReceiveAbandonmentPolicyChange(message);
                     break;
+
+                case PeerMessageType.Unknown:
+                default:
+                    // OOPS BROKEN MESSAGE :(
+                    // TODO LOG WARNING HERE
+                    break;
             }
 
-            if (Network.Contains(message.SenderPeerID)) {
-                Network[message.SenderPeerID].RegisterHeartbeat();
+            if (PeerNetwork.Contains(message.SenderPeerID)) {
+                PeerNetwork.GetPeerInfo(message.SenderPeerID).RegisterHeartbeat();
             }
 
             OnMessageProcessed?.Invoke(message.Type, message.SenderPeerID);
         }
 
         private static void HandlePeerNetworkMessage(PeerMessage message) {
-            PeerInfo[] connections = Network.DeserializeConnections(message.Buffer);
+            PeerInfo[] connections = PeerNetwork.DeserializeConnections(message.Buffer);
 
             foreach(PeerInfo info in connections) {
                 Connect(info, PeerConnectReason.PeerNetwork);
@@ -306,6 +321,8 @@ namespace HiHi {
         }
 
         private static void ProcessPingRequest(PeerMessage message) {
+            if (!PeerNetwork.Contains(message.SenderPeerID)) { return; }
+
             float sentPing = HiHiTime.RealTime - HalfPrecision.Dequantize(message.Buffer.ReadUShort());
 
             PeerMessage pingMessage = NewMessage(PeerMessageType.PingResponse);
@@ -314,12 +331,18 @@ namespace HiHi {
         }
 
         private static void ProcessPingResponse(PeerMessage message) {
+            if (!PeerNetwork.Contains(message.SenderPeerID)) { return; }
+
             float receivedPing = HalfPrecision.Dequantize(message.Buffer.ReadUShort());
-            Network[message.SenderPeerID].SetPing(receivedPing);
+            PeerNetwork.GetPeerInfo(message.SenderPeerID).SetPing(receivedPing);
         }
 
         #endregion
 
+        #region Misc
+
         private static void Log(ushort peerID, string message) => OnLog?.Invoke(peerID, message);
+
+        #endregion
     }
 }

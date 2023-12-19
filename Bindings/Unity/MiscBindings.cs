@@ -1,4 +1,6 @@
-﻿/*
+﻿#if UNITY_EDITOR || UNITY_STANDALONE
+
+/*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
  * Copyright © 2023 Pelle Bruinsma
@@ -21,11 +23,16 @@
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Signaling {
-    public class SignalerConnectionInfo : PeerInfo {
-        public int DesiredLobbySize { get; set; }
-        public SignalerLobby<SignalerConnectionInfo> Lobby { get; set; } = null;
+namespace HiHi {
+    public partial struct HiHiVector3 {
+        public static implicit operator UnityEngine.Vector3(HiHiVector3 from) => new UnityEngine.Vector3(from.X, from.Y, from.Z);
+        public static implicit operator HiHiVector3(UnityEngine.Vector3 from) => new HiHiVector3(from.x, from.y, from.z);
+    }
 
-        public SignalerConnectionInfo() { }
+    public partial struct HiHiQuaternion {
+        public static implicit operator UnityEngine.Quaternion(HiHiQuaternion from) => new UnityEngine.Quaternion(from.X, from.Y, from.Z, from.W);
+        public static implicit operator HiHiQuaternion(UnityEngine.Quaternion from) => new HiHiQuaternion(from.x, from.y, from.z, from.w);
     }
 }
+
+#endif

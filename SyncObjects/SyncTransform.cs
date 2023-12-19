@@ -114,7 +114,7 @@ namespace HiHi {
 
         public bool TryGetPosition(HiHiVector3 fromPosition, out HiHiVector3 returnedPosition) {
             if(HiHiVector3.Distance(fromPosition, newPosition) >= TeleportDistance) {
-                returnedPosition = newPosition - fromPosition;
+                returnedPosition = newPosition;
                 return true; 
             }
 

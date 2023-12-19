@@ -1,6 +1,8 @@
-﻿#if GODOT
+#if GODOT
 
+using Godot.Collections;
 using Godot;
+using HiHi.Common;
 using HiHi.Serialization;
 
 /*
@@ -27,24 +29,32 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial class GodotSpawnData : Resource, ISpawnData {
-        public int Index => helper.SpawnDataRegistry.IndexOf(this);
+	public partial class Helper : Node, IHelper {
+		public static Helper Instance { get; private set; }
 
-        [Export] public PackedScene Scene;
+		[ExportGroup("Spawning")]
+		[Export] public Array<SpawnData> SpawnDataRegistry = new Array<SpawnData>();
 
-        private GodotHelper helper => Peer.Helper as GodotHelper;
+		public override void _EnterTree() {
+			base._EnterTree();
 
-        void ISpawnData.Serialize(BitBuffer buffer) {
-            buffer.AddByte((byte)Index);
-        }
+			Instance = this;
+		}
 
-        INetworkObject ISpawnData.Spawn() {
-            Node spawnedNode = Scene.Instantiate();
-            helper.AddChild(spawnedNode);
+		void IHelper.SerializeSpawnData(ISpawnData spawnData, BitBuffer buffer) {
+			spawnData.Serialize(buffer);
+		}
 
-            return spawnedNode as INetworkObject;
-        }
-    }
+		ISpawnData IHelper.DeserializeSpawnData(BitBuffer buffer) {
+			byte spawnDataIndex = buffer.ReadByte();
+
+			if (SpawnDataRegistry.Count <= spawnDataIndex) {
+				throw new HiHiException($"Received spawn message referencing spawn index {spawnDataIndex}. Which doesn't exist in the {nameof(Helper)}.{nameof(SpawnDataRegistry)}. Make sure your spawndata is the same across peers.");
+			}
+
+			return SpawnDataRegistry[spawnDataIndex];
+		}
+	}
 }
 
 #endif

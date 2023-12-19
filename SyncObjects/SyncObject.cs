@@ -48,10 +48,19 @@ namespace HiHi {
         public void Register(INetworkObject parent) {
             if (Registered) { return; }
 
-            UniqueID = parent.RegisterSyncObject(this);
+            parent.RegisterSyncObject(this);
             this.parent = parent;
-
             Registered = true;
+        }
+
+        public void Unregister() {
+            if (!Registered) { return; }
+
+            parent.UnregisterSyncObject(this);
+
+            UniqueID = default;
+            parent = null;
+            Registered = false;
         }
 
         #region Checks
@@ -68,14 +77,18 @@ namespace HiHi {
 
         #region Virtual
 
+        public virtual void OnRegister(byte uniqueID) {
+            this.UniqueID = uniqueID;
+        }
+
+        public virtual void OnUnregister() { }
+
         public virtual void Synchronize(ushort? destinationPeer = null) {
             RegistrationCheck();
             AuthorizationCheck();
 
             PeerMessage message = NewMessage(destinationPeer);
-
             Serialize(message.Buffer);
-
             Peer.SendMessage(message);
         }
 

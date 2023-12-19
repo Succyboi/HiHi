@@ -1,4 +1,5 @@
 ﻿using HiHi.Common;
+using HiHi.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -68,20 +69,21 @@ namespace HiHi {
                 SendAbandonmentPolicyChange(UniqueID, AbandonmentPolicy);
             }
         }
-        public SyncObject[] SyncObjects {
+
+        protected Dictionary<byte, SyncObject> SyncObjects {
             get {
-                syncObjects ??= new SyncObject[byte.MaxValue + 1];
+                syncObjects ??= new Dictionary<byte, SyncObject>();
                 return syncObjects;
             }
         }
-
         protected ushort? ownerID { get; set; }
         protected NetworkObjectAbandonmentPolicy abandonmentPolicy { get; set; }
-        protected SyncObject[] syncObjects { get; set; }
-        protected byte syncObjectCount { get; set; }
+        protected Dictionary<byte, SyncObject> syncObjects { get; set; }
+        protected static Queue<byte> availableSyncObjectIDs { get; set; }
+        protected static Random random;
 
         static INetworkObject() {
-            Random random = new Random();
+            random = new Random();
 
             for(ushort i = 0; i < ushort.MaxValue; i++) {
                 availableIDs.Enqueue(i);
@@ -97,16 +99,25 @@ namespace HiHi {
             }
         }
 
+        public static bool IsIDAvailable(ushort ID) {
+            return !Instances.ContainsKey(ID);
+        }
+
         public ushort Register(ushort? proposedUniqueID = null, ushort? ownerID = null, ISpawnData originSpawnData = null) {
             if (Registered) { return UniqueID; }
 
             UniqueID = proposedUniqueID ?? UniqueID;
             OwnerID = ownerID;
             OriginSpawnData = originSpawnData;
-            if (Instances.ContainsKey(UniqueID)) {
+            if (!IsIDAvailable(UniqueID)) {
                 UniqueID = availableIDs.Dequeue();
             }
             
+            availableSyncObjectIDs = new Queue<byte>();
+            for (byte i = 0; i < byte.MaxValue; i++) {
+                availableSyncObjectIDs.Enqueue(i);
+            }
+
             Instances.Add(UniqueID, this);
             Registered = true;
 
@@ -118,6 +129,10 @@ namespace HiHi {
         public void UnRegister() {
             if (!Registered) { return; }
 
+            while(SyncObjects.Count > 0) {
+               UnregisterSyncObject(SyncObjects[syncObjects.Keys.FirstOrDefault()]);
+            }
+
             availableIDs.Enqueue(UniqueID);
 
             Instances.Remove(UniqueID);
@@ -128,13 +143,13 @@ namespace HiHi {
 
         #region Spawning
 
-        public static INetworkObject SyncSpawn(ISpawnData spawnData, ushort? ownerID = null) {
+        public static T SyncSpawn<T>(ISpawnData spawnData, ushort? ownerID = null) where T : class, INetworkObject {
             INetworkObject spawnedObject = spawnData.Spawn();
             spawnedObject.Register(null, ownerID, spawnData);
 
             SendSpawn(spawnData, spawnedObject.UniqueID, ownerID);
 
-            return spawnedObject;
+            return spawnedObject as T;
         }
 
         public static void SendSpawn(ISpawnData spawnData, ushort uniqueID, ushort? ownerID) {
@@ -226,7 +241,7 @@ namespace HiHi {
 
         public void Claim() => GiveToPeer(Peer.Info.UniqueID);
         public void Forfeit() => GiveToPeer(null);
-        public void GiveToRandomPeer() => GiveToPeer(Peer.Network.GetRandomPeerID());
+        public void GiveToRandomPeer() => GiveToPeer(PeerNetwork.GetElectedPeer(random.Next(int.MaxValue)));
         public void GiveToPeer(ushort? peerID) => GiveToPeer(peerID, false);
 
         protected void GiveToPeer(ushort? peerID, bool forceLocally = false) {
@@ -305,10 +320,7 @@ namespace HiHi {
                 case NetworkObjectAbandonmentPolicy.RemainOwnedRandomly:
                     if (!Owned) { break; }
 
-                    IEnumerable<ushort> candidates = Peer.Network.PeerIDs.Concat(new ushort[1] { Peer.Info.UniqueID }).OrderBy(p => p);
-                    ushort pickedID = candidates.Skip(UniqueID % candidates.Count()).First();
-
-                    GiveToPeer(pickedID, true);
+                    GiveToPeer(PeerNetwork.GetElectedPeer(UniqueID), true);
                     break;
 
                 case NetworkObjectAbandonmentPolicy.BecomeShared:
@@ -341,16 +353,23 @@ namespace HiHi {
             syncObject.Deserialize(message.SenderPeerID, message.Buffer);
         }
 
-        public byte RegisterSyncObject(SyncObject syncObject) {
-            byte uniqueID = syncObjectCount++;
+        public void RegisterSyncObject(SyncObject syncObject) {
+            byte uniqueID = availableSyncObjectIDs.Dequeue();
             SyncObjects[uniqueID] = syncObject;
 
-            return uniqueID;
+            syncObject.OnRegister(uniqueID);
+        }
+
+        public void UnregisterSyncObject(SyncObject syncObject) {
+            SyncObjects.Remove(syncObject.UniqueID);
+            availableSyncObjectIDs.Enqueue(syncObject.UniqueID);
+
+            syncObject.OnUnregister();
         }
 
         public void UpdateSyncObjects() {
-            for (int s = 0; s < syncObjectCount; s++) {
-                SyncObjects[s]?.Update();
+            foreach (KeyValuePair<byte, SyncObject> syncObjectPair in SyncObjects) {
+                syncObjectPair.Value.Update();
             }
         }
 

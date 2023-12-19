@@ -1,5 +1,6 @@
 ﻿using HiHi.Common;
 using System.Threading;
+using System.Threading.Tasks;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -30,20 +31,24 @@ namespace HiHi.Signaling {
 
         protected virtual int SignalRoutineIntervalMS => 1000;
 
-        protected Thread thread;
+        protected Task task;
         protected ThreadTimer threadTimer;
 
         public Signaler() {
-            thread = new Thread(() => SignalRoutine());
-			threadTimer = new ThreadTimer(SignalRoutineIntervalMS);
+            threadTimer = new ThreadTimer(SignalRoutineIntervalMS);
         }
 
         public virtual void Start() {
+            if (Running) { return; }
+
             Running = true;
-            thread.Start();
+
+            task = Task.Run(() => SignalRoutine());
         }
 
         public virtual void Stop() {
+            if (!Running) { return; }
+
             Running = false;
         }
 

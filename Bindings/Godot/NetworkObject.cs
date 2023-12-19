@@ -1,4 +1,9 @@
-﻿/*
+#if GODOT
+
+using Godot;
+using System;
+
+/*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
  * Copyright © 2023 Pelle Bruinsma
@@ -21,11 +26,20 @@
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Signaling {
-    public class SignalerConnectionInfo : PeerInfo {
-        public int DesiredLobbySize { get; set; }
-        public SignalerLobby<SignalerConnectionInfo> Lobby { get; set; } = null;
+namespace HiHi {
+	public abstract partial class NetworkObject : Node {
+		#region Godot
 
-        public SignalerConnectionInfo() { }
-    }
+		public override void _ExitTree() {
+			base._ExitTree();
+
+			if (Interface.Registered) {
+				Interface.UnRegister();
+			}
+		}
+
+		#endregion
+	}
 }
+
+#endif

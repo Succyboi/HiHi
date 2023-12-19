@@ -2,7 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Linq;
-using Godot.Collections;
+using System.Collections.Generic;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -32,6 +32,7 @@ namespace HiHi.Common {
         public const string END_POINT_STRING_TEMPLATE = "{0}:{1}";
 
         private static Dictionary<string, string[]> HostNameCache = new Dictionary<string, string[]>();
+        private static Dictionary<string, IPEndPoint> EndPointCache = new Dictionary<string, IPEndPoint>();
 
         public static int GetFreePort(int preferredPort = 0) {
             return CheckUDPPortAvailable(preferredPort)
@@ -65,21 +66,36 @@ namespace HiHi.Common {
             return true;
         }
 
-        public static bool TryGetLocalAddressString(out string ip) {
+        public static bool TryGetLocalAddress(out IPAddress iPaddress) {
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
             foreach (IPAddress address in host.AddressList) {
                 if (address.AddressFamily == AddressFamily.InterNetwork) {
-                    ip = address.ToString();
+                    iPaddress = address;
                     return true;
                 }
             }
 
-            ip = "";
+            iPaddress = null;
             return false;
         }
 
-        public static string GetLocalAddressString() {
-            if(!TryGetLocalAddressString(out string ip)) {
+        public static IPAddress GetLocalAddress() {
+            if (!TryGetLocalAddress(out IPAddress ip)) {
+                throw new HiHiException("Failed to get local IP address.");
+            }
+
+            return ip;
+        }
+
+        public static bool TryGetLocalAddressString(out string iPaddressString) {
+            bool result = TryGetLocalAddress(out IPAddress address);
+            iPaddressString = address?.ToString();
+            
+            return result;
+        }
+
+        public static string  GetLocalAddressString() {
+            if (!TryGetLocalAddressString(out string ip)) {
                 throw new HiHiException("Failed to get local IP address.");
             }
 
@@ -87,10 +103,18 @@ namespace HiHi.Common {
         }
 
         public static string ToEndPointString(this IPEndPoint endpoint) {
-            return ToEndPointString(endpoint.Address.ToString(), endpoint.Port);
+            return ToEndPointString(IPAddressToString(endpoint.Address), endpoint.Port);
         }
 
         public static string ToEndPointString(object address, object port) => string.Format(END_POINT_STRING_TEMPLATE, address, port);
+
+        public static string IPAddressToString(IPAddress iPAddress) {
+            if (iPAddress.Equals(IPAddress.Any)) {
+                iPAddress = GetLocalAddress();
+            }
+
+            return iPAddress.ToString();
+        }
 
         public static bool TryParseHostName(string hostName, out IPAddress[] addresses) {
             if (!HostNameCache.ContainsKey(hostName)) {
@@ -102,21 +126,47 @@ namespace HiHi.Common {
             return addresses.Length > 0;
         }
 
-        public static IPEndPoint ParseStringToIPEndpoint(string endPointString) {
-            IPEndPoint endPoint;
-            if (IPEndPoint.TryParse(endPointString, out endPoint)) {
+        public static IPEndPoint ParseStringToIPEndPoint(string endPointString) {
+            if (TryParseStringToIPEndPoint(endPointString, out IPEndPoint endPoint)) {
                 return endPoint;
             }
 
-            string hostname = endPointString.Substring(0, endPointString.LastIndexOf(':'));
-            string port = endPointString.Substring(endPointString.LastIndexOf(':') + 1);
+            throw new HiHiException($"Couldn't parse string: {endPointString}");
+        }
 
-            if (TryParseHostName(hostname, out IPAddress[] addresses)) {
-                IPAddress address = addresses.OrderBy(a => a.AddressFamily).FirstOrDefault();
-                return new IPEndPoint(address, int.Parse(port));
+        public static bool TryParseStringToIPEndPoint(string endPointString, out IPEndPoint endPoint) {
+            if (EndPointCache.ContainsKey(endPointString)) {
+                endPoint = EndPointCache[endPointString];
+                return true;
             }
 
-            throw new HiHiException($"Couldn't parse string: {endPointString}");
+            try {
+                IPAddress iPAddress;
+
+                string address = endPointString.Substring(0, endPointString.LastIndexOf(':'));
+                int port = int.Parse(endPointString.Substring(endPointString.LastIndexOf(':') + 1));
+
+                if (IPAddress.TryParse(address, out iPAddress)) {
+                    if (iPAddress.Equals(IPAddress.Any)) {
+                        iPAddress = GetLocalAddress();
+                    }
+
+                    endPoint = new IPEndPoint(iPAddress, port);
+                    EndPointCache.Add(endPointString, endPoint);
+                    return true;
+                }
+
+                if (TryParseHostName(address, out IPAddress[] addresses)) {
+                    iPAddress = addresses.OrderBy(a => a.AddressFamily).FirstOrDefault();
+                    endPoint = new IPEndPoint(iPAddress, port);
+                    EndPointCache.Add(endPointString, endPoint);
+                    return true;
+                }
+            }
+            catch { }
+
+            endPoint = null;
+            return false;
         }
     }
 }

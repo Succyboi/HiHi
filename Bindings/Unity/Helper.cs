@@ -1,4 +1,10 @@
-﻿/*
+#if UNITY_EDITOR || UNITY_STANDALONE
+
+using HiHi.Common;
+using HiHi.Serialization;
+using UnityEngine;
+
+/*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
  * Copyright © 2023 Pelle Bruinsma
@@ -21,11 +27,31 @@
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi.Signaling {
-    public class SignalerConnectionInfo : PeerInfo {
-        public int DesiredLobbySize { get; set; }
-        public SignalerLobby<SignalerConnectionInfo> Lobby { get; set; } = null;
+namespace HiHi {
+	public class Helper : MonoBehaviour, IHelper {
+		public static UnityHelper Instance { get; private set; }
 
-        public SignalerConnectionInfo() { }
-    }
+		[Header("Spawning")]
+		[SerializeField] public SpawnData[] SpawnDataRegistry = new SpawnData[0];
+
+		public virtual void OnEnable() {
+            Instance = this;
+        }
+
+		void IHelper.SerializeSpawnData(ISpawnData spawnData, BitBuffer buffer) {
+			spawnData.Serialize(buffer);
+		}
+
+		ISpawnData IHelper.DeserializeSpawnData(BitBuffer buffer) {
+			byte spawnDataIndex = buffer.ReadByte();
+
+			if (SpawnDataRegistry.Length <= spawnDataIndex) {
+				throw new HiHiException($"Received spawn message referencing spawn index {spawnDataIndex}. Which doesn't exist in the {nameof(UnityHelper)}.{nameof(SpawnDataRegistry)}. Make sure your spawndata is the same across peers.");
+			}
+
+			return SpawnDataRegistry[spawnDataIndex];
+		}
+	}
 }
+
+#endif

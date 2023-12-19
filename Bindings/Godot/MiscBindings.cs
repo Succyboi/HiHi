@@ -1,9 +1,4 @@
-#if GODOT
-
-using Godot.Collections;
-using Godot;
-using HiHi.Common;
-using HiHi.Serialization;
+﻿#if GODOT
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -29,32 +24,20 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-	public partial class GodotHelper : Node, IHelper {
-		public static GodotHelper Instance { get; private set; }
+    public partial struct HiHiVector3 {
+        public static implicit operator Godot.Vector3(HiHiVector3 from) => new Godot.Vector3(from.X, from.Y, from.Z);
+        public static implicit operator HiHiVector3(Godot.Vector3 from) => new HiHiVector3(from.X, from.Y, from.Z);
+    }
 
-		[ExportGroup("Spawning")]
-		[Export] public Array<GodotSpawnData> SpawnDataRegistry = new Array<GodotSpawnData>();
+    public partial struct HiHiVector2 {
+        public static implicit operator Godot.Vector2(HiHiVector2 from) => new Godot.Vector2(from.X, from.Y);
+        public static implicit operator HiHiVector2(Godot.Vector2 from) => new HiHiVector2(from.X, from.Y);
+    }
 
-		public override void _EnterTree() {
-			base._EnterTree();
-
-			Instance = this;
-		}
-
-		void IHelper.SerializeSpawnData(ISpawnData spawnData, BitBuffer buffer) {
-			spawnData.Serialize(buffer);
-		}
-
-		ISpawnData IHelper.DeserializeSpawnData(BitBuffer buffer) {
-			byte spawnDataIndex = buffer.ReadByte();
-
-			if (SpawnDataRegistry.Count <= spawnDataIndex) {
-				throw new HiHiException($"Received spawn message referencing spawn index {spawnDataIndex}. Which doesn't exist in the {nameof(GodotHelper)}.{nameof(SpawnDataRegistry)}. Make sure your spawndata is the same across peers.");
-			}
-
-			return SpawnDataRegistry[spawnDataIndex];
-		}
-	}
+    public partial struct HiHiQuaternion {
+        public static implicit operator Godot.Quaternion(HiHiQuaternion from) => new Godot.Quaternion(from.X, from.Y, from.Z, from.W);
+        public static implicit operator HiHiQuaternion(Godot.Quaternion from) => new HiHiQuaternion(from.X, from.Y, from.Z, from.W);
+    }
 }
 
 #endif

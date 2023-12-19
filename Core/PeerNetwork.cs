@@ -29,49 +29,47 @@ using System.Linq;
  */
 namespace HiHi {
     public class PeerNetwork {
-        public ICollection<ushort> PeerIDs => connections.Keys;
-        public int Connections => connections.Count;
-        public bool Connected => connections.Count > 0; 
+        public static IEnumerable<ushort> PeerIDs => connections.Keys.Append(Peer.Info.UniqueID);
+        public static int PeerCount => RemotePeerCount + 1;
+        public static ICollection<ushort> RemotePeerIDs => connections.Keys;
+        public static int RemotePeerCount => connections.Count;
+        public static bool Connected => connections.Count > 0;
+        public static uint Hash => (uint)PeerIDs
+            .Sum(c => c);
 
-        private ConcurrentDictionary<ushort, PeerInfo> connections { get; set; }
-        private Random syncedRandom;
+        private static ConcurrentDictionary<ushort, PeerInfo> connections { get; set; }
 
-        public PeerNetwork() {
+        static PeerNetwork() {
             connections = new ConcurrentDictionary<ushort, PeerInfo>();
-
-            ResetSyncedRandom();
         }
 
-        public PeerInfo this[ushort ID] => ID == Peer.Info.UniqueID 
-            ? Peer.Info 
+        public static PeerInfo GetPeerInfo(ushort ID) => ID == Peer.Info.UniqueID
+            ? Peer.Info
             : connections[ID];
 
-        public bool TryAddConnection(PeerInfo info) {
-            if (info.UniqueID == Peer.Info.UniqueID) { return false; }
-            if (connections.ContainsKey(info.UniqueID)) { return false; }
+        public static bool TryAddConnection(PeerInfo info) {
+            if (Contains(info.UniqueID)) { return false; }
 
             connections.AddOrUpdate(info.UniqueID, info, (id, p) => info);
-            ResetSyncedRandom();
             return true;
         }
 
-        public bool TryRemoveConnection(ushort peerID) {
-            if (!connections.ContainsKey(peerID)) { return false; }
+        public static bool TryRemoveConnection(ushort peerID) {
+            if (!Contains(peerID)) { return false; }
 
             connections.Remove(peerID, out _);
-            ResetSyncedRandom();
             return true;
         }
 
-        public bool Contains(ushort ID) {
+        public static bool Contains(ushort ID) {
             return ID == Peer.Info.UniqueID 
                 ? true
                 : connections.ContainsKey(ID);
         }
 
-        public bool TryGetIDFromEndpoint(string endpoint, out ushort id) {
+        public static bool TryGetIDFromEndPointString(string endpoint, out ushort id) {
             foreach(KeyValuePair<ushort, PeerInfo> connection in connections) {
-                if (string.Equals(connection.Value.EndPoint, endpoint, StringComparison.OrdinalIgnoreCase)) {
+                if (string.Equals(connection.Value.RemoteEndPoint, endpoint, StringComparison.OrdinalIgnoreCase)) {
                     id = connection.Key;
                     return true;
                 }
@@ -81,30 +79,21 @@ namespace HiHi {
             return false;
         }
 
-        public ushort GetSyncedRandomUShort() {
-            return (ushort)syncedRandom.Next(ushort.MaxValue);
-        }
-
-        public ushort GetRandomPeerID() {
-            IEnumerable<ushort> peers = Peer.Network.PeerIDs.Append(Peer.Info.UniqueID);
-            return peers.Skip(Peer.Network.GetSyncedRandomUShort() % peers.Count()).First();
-        }
-
-        private void ResetSyncedRandom() {
-            syncedRandom = new Random(connections.Sum(c => c.Key));
+        public static ushort GetElectedPeer(int? sharedNumber = null) {
+            return PeerIDs.Skip((sharedNumber ?? (int)Hash) % PeerIDs.Count()).First();
         }
 
         #region Serialization
 
-        public void SerializeConnections(BitBuffer buffer) {
-            buffer.AddUShort((ushort)PeerIDs.Count);
+        public static void SerializeConnections(BitBuffer buffer) {
+            buffer.AddUShort((ushort)RemotePeerIDs.Count);
 
-            foreach(ushort peerID in PeerIDs) {
+            foreach(ushort peerID in RemotePeerIDs) {
                 connections[peerID].Serialize(buffer);
             }
         }
 
-        public PeerInfo[] DeserializeConnections(BitBuffer buffer) {
+        public static PeerInfo[] DeserializeConnections(BitBuffer buffer) {
             ushort connectionCount = buffer.ReadUShort();
             PeerInfo[] connections = new PeerInfo[connectionCount];
 

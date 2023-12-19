@@ -24,11 +24,31 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial struct HiHiVector2 : ISerializable {
-        public float X = 0f;
-        public float Y = 0f;
+    public struct HiHiFloat : ISerializable {
+        public float Value;
 
-        public HiHiVector2() { }
+        public HiHiFloat(float Value) {
+            this.Value = Value;
+        }
+
+        void ISerializable.Serialize(BitBuffer buffer) {
+            buffer.AddUShort(HalfPrecision.Quantize(Value));
+        }
+
+        void ISerializable.Deserialize(BitBuffer buffer) {
+            Value = HalfPrecision.Dequantize(buffer.ReadUShort());
+        }
+
+        public static implicit operator float(HiHiFloat from) => from.Value;
+        public static implicit operator HiHiFloat(float from) => new HiHiFloat(from);
+    }
+
+    public partial struct HiHiVector2 : ISerializable {
+        public float X;
+        public float Y;
+
+        public HiHiVector2 Zero => new HiHiVector2(0f, 0f);
+
         public HiHiVector2(float X, float Y) {
             this.X = X;
             this.Y = Y;
@@ -46,11 +66,12 @@ namespace HiHi {
     }
 
     public partial struct HiHiVector3 : ISerializable {
-        public float X = 0f;
-        public float Y = 0f;
-        public float Z = 0f;
+        public float X;
+        public float Y;
+        public float Z;
 
-        public HiHiVector3() { }
+        public HiHiVector3 Zero => new HiHiVector3(0f, 0f, 0f);
+
         public HiHiVector3(float X, float Y, float Z) {
             this.X = X;
             this.Y = Y;
@@ -71,12 +92,12 @@ namespace HiHi {
     }
 
     public partial struct HiHiVector4 : ISerializable {
-        public float X = 0f;
-        public float Y = 0f;
-        public float Z = 0f;
-        public float W = 0f;
+        public float X;
+        public float Y;
+        public float Z;
+        public float W;
 
-        public HiHiVector4() { }
+        public HiHiVector4 Zero => new HiHiVector4(0f, 0f, 0f, 0f);
         public HiHiVector4(float X, float Y, float Z, float W) {
             this.X = X;
             this.Y = Y;

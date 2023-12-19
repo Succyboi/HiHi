@@ -1,5 +1,4 @@
-﻿using HiHi.Common;
-using HiHi.Serialization;
+﻿using HiHi.Serialization;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -25,72 +24,31 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi.Discovery {
-    public class UDPSignalerFinder : PeerFinder {
-        public string Address { get; set; }
-        public int Port { get; set; }
-        public string EndPoint => HiHiUtility.ToEndPointString(Address, Port);
-
-        protected override int FindRoutineIntervalMS => HiHiConfiguration.SIGNALER_HEARTBEAT_SEND_INTERVAL_MS;
-
-        public UDPSignalerFinder(string address, int port) : base() {
-            this.Address = address;
-            this.Port = port;
-        }
+    public class BroadcastFinder : PeerFinder {
+        public BroadcastFinder() : base() { }
 
         public override void Start() {
-            if (Running) { return; }
-
             Peer.Transport.ReceiveBroadcast = true;
+            Peer.Info.Verify(Peer.Info.SelfAssignedID, string.IsNullOrEmpty(Peer.Info.RemoteEndPoint) ? Peer.Transport.LocalEndPoint : Peer.Info.RemoteEndPoint);
 
             base.Start();
         }
 
         public override void Stop() {
-            if (!Running) { return; }
-
-            SendDisconnect();
-            Peer.Transport.ReceiveBroadcast = false;
-
             base.Stop();
+
+            Peer.Transport.ReceiveBroadcast = false;
+            Peer.Info.RemoteEndPoint = string.Empty;
         }
 
         public override void Find() {
-            if (!Peer.Info.Verified) {
-                SendVerificationRequest();
-                return;
-            }
+            if (!Peer.Info.Verified) { return; }
 
-            if (!Peer.Connected) {
-                SendRemotePeerInfoRequest();
-                return;
-            }
+            if (Peer.Connected) { return; }
 
-            SendHeartBeat();
-        }
-
-        private void SendVerificationRequest() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.VerifiedPeerInfoRequest, default, EndPoint);
+            PeerMessage message = Peer.NewMessage(PeerMessageType.Connect);
             Peer.Info.Serialize(message.Buffer);
-
-            Peer.Transport.Send(message);
-        }
-
-        private void SendRemotePeerInfoRequest() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.RemotePeerInfoRequest, default, EndPoint);
-
-            Peer.Transport.Send(message);
-        }
-
-        private void SendHeartBeat() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.HeartBeat, default, EndPoint);
-
-            Peer.Transport.Send(message);
-        }
-
-        private void SendDisconnect() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.Disconnect, default, EndPoint);
-
-            Peer.Transport.Send(message);
+            Peer.Transport.SendBroadcast(message);
         }
     }
 }

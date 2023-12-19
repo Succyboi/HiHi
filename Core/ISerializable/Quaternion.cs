@@ -25,12 +25,13 @@
  */
 namespace HiHi {
     public partial struct HiHiQuaternion : ISerializable {
-        public float X = 0f;
-        public float Y = 0f;
-        public float Z = 0f;
-        public float W = 1f;
+        public float X;
+        public float Y;
+        public float Z;
+        public float W;
 
-        public HiHiQuaternion() { }
+        public HiHiQuaternion Identity => new HiHiQuaternion(0f, 0f, 0f, 1f);
+        
         public HiHiQuaternion(float X, float Y, float Z, float W) {
             this.X = X;
             this.Y = Y;

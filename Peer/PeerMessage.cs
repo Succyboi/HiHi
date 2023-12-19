@@ -36,7 +36,10 @@ namespace HiHi {
 
         public PeerMessageType Type { get; private set; }
         public ushort SenderPeerID { get; private set; }
-        public string DestinationEndPoint => destinationEndPoint;
+        public string DestinationEndPoint {
+            get => destinationEndPoint;
+            set => destinationEndPoint = value;
+        }
         public string SenderEndPoint => senderEndPoint;
         public bool DestinationAll => destinationEndPoint.Equals(string.Empty);
         public BitBuffer Buffer { get; private set; }
@@ -78,17 +81,17 @@ namespace HiHi {
             return message;
         }
 
-        public static PeerMessage Borrow(string endPoint, byte[] data, int length) {
+        public static PeerMessage Borrow(string endPointString, byte[] data, int length) {
             PeerMessage message = Borrow();
 
-            message.senderEndPoint = endPoint;
+            message.senderEndPoint = endPointString;
             message.Buffer.FromArray(data, length);
             message.Type = (PeerMessageType)message.Buffer.Read(PEER_MESSAGE_TYPE_BITS);
 
-            if (Peer.Initialized) {
-                if (Peer.Network.TryGetIDFromEndpoint(message.senderEndPoint, out ushort peerID)) {
-                    message.SenderPeerID = peerID;
-                }
+            if (!Peer.Initialized) { return message; }
+
+            if (PeerNetwork.TryGetIDFromEndPointString(message.senderEndPoint, out ushort peerID)) {
+                message.SenderPeerID = peerID;
             }
 
             return message;

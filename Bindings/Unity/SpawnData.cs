@@ -1,4 +1,8 @@
-﻿using HiHi.Serialization;
+﻿#if UNITY_EDITOR || UNITY_STANDALONE
+
+using UnityEngine;
+using HiHi.Serialization;
+using System;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -24,49 +28,25 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public class Sync<T> : SyncObject {
-        public T Value {
-            get {
-                return value;
-            }
-            set {
-                AuthorizationCheck();
+    [CreateAssetMenu(fileName = "SpawnData", menuName = "HiHi/SpawnData")]
+    public class SpawnData : ScriptableObject, ISpawnData {
+        public int Index => Array.IndexOf(helper.SpawnDataRegistry, this);
 
-                Dirty = Dirty
-                    ? true
-                    : !this.value.Equals(value);
+        [SerializeField] public NetworkObject Prefab;
 
-                this.value = value;
-            }
-        }
-        public bool Dirty { get; private set; }
+        private UnityHelper helper => Peer.Helper as UnityHelper;
 
-        protected T value;
-
-        public Sync(INetworkObject parent, T value = default) : base(parent) {
-            this.value = value;
+        void ISpawnData.Serialize(BitBuffer buffer) {
+            buffer.AddByte((byte)Index);
         }
 
-        public override void Update() {
-            if (!Authorized) { return; }
+        INetworkObject ISpawnData.Spawn() {
+            UnityNetworkObject spawnedInstance = Instantiate(Prefab);
+            spawnedInstance.transform.parent = helper.transform;
 
-            if (Dirty) {
-                Synchronize();
-            }
-        }
-
-        public override void Serialize(BitBuffer buffer) {
-            value.Serialize(buffer);
-
-            Dirty = false;
-
-            base.Serialize(buffer);
-        }
-
-        public override void Deserialize(BitBuffer buffer) {
-            value = value.Deserialize(buffer);
-
-            base.Deserialize(buffer);
+            return spawnedInstance as INetworkObject;
         }
     }
 }
+
+#endif

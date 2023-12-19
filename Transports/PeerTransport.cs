@@ -1,5 +1,7 @@
 ﻿using HiHi.Common;
+using System;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Threading;
 
 /*
@@ -29,15 +31,15 @@ namespace HiHi {
     public abstract class PeerTransport {
         public const int THREAD_TIMER_INTERVAL_MS = 5;
 
-        public bool Running { get; private set; }
-        public bool ReceiveBroadcast { get; set; }
+        public bool Running { get; private set; } = false;
+        public bool ReceiveBroadcast { get; set; } = false;
         public bool IncomingMessagesAvailable => !IncomingMessages.IsEmpty;
         public ConcurrentQueue<PeerMessage> IncomingMessages { get; private set; }
         public ConcurrentQueue<PeerMessage> OutgoingMessages { get; private set; }
         public virtual int MaxPacketSize => 0;
         public abstract string LocalEndPoint { get; }
         public abstract string LocalAddress { get; }
-        public abstract int Port { get; }
+        public abstract int LocalPort { get; }
 
         private Thread incomingThread;
         private ThreadTimer incomingThreadTimer = new ThreadTimer(THREAD_TIMER_INTERVAL_MS);
@@ -53,6 +55,8 @@ namespace HiHi {
         }
 
         public virtual void Start() {
+            if (Running) { return; }
+
             IncomingMessages.Clear();
             OutgoingMessages.Clear();
 
@@ -63,11 +67,21 @@ namespace HiHi {
         }
 
         public virtual void Stop() {
+            if (!Running) { return; }
+
             Running = false;
         }
 
         public void Send(PeerMessage message) {
             OutgoingMessages.Enqueue(message);
+        }
+
+        public virtual void SendBroadcast(PeerMessage message) {
+            throw new NotImplementedException($"{nameof(SendBroadcast)} is not implemented on this {nameof(PeerTransport)}.");
+        }
+
+        public virtual void SendNATIntroduction(string internalEndPointA, string externalEndPointA, string internalEndPointB, string externalEndPointB) {
+            throw new NotImplementedException($"{nameof(SendNATIntroduction)} is not implemented on this {nameof(PeerTransport)}.");
         }
 
         public PeerMessage Receive() {

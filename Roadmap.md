@@ -1,0 +1,38 @@
+# Roadmap
+
+- [x] Connections
+- [x] Local discovery
+- [x] Serialization
+- [x] Messaging
+- [x] Networked objects
+- [x] Ownership
+- [x] Synchronized variables
+- [x] RPC's
+- [x] Time synchronization
+- [x] Synchronized transforms
+- [x] Synchronized physics bodies
+- [x] Synchronized spawning & destruction
+- [x] Spawn history synchronization for new connections
+- [x] Abandonment
+- [x] Questions
+- [x] Message allocation optimization
+- [x] Prettify NetworkObject implementation
+- [x] PeerMessage sender header optimization
+- [x] Signaling
+- [x] NAT punching *To be more extensively tested.*
+- [x] Democracy
+- [x] Unity Bindings
+- [x] Rename engine implementations (I.E. UnityNetworkObject -> NetworkObject)
+- [x] Add HiHiVector2 conversion
+- [x] Rework PeerNetwork to distinguish between all peers and remote peers
+- [x] Rework PeerNetwork to be static
+- [x] Rework SyncSpawn to return type that was spawned
+- [x] PeerNetwork player election
+- [x] Retire UDPTransport
+- [x] NetworkObject Interface properties
+- [ ] Update Unity Bindings
+- [ ] INetworkObject reference SyncObject
+- [ ] Include LocalAutoConnect with engine implementations
+- [ ] Asset store / Godot asset library uploads
+- [ ] Example project
+- [ ] Getting started tutorial

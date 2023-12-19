@@ -1,4 +1,5 @@
-﻿#if GODOT
+﻿using HiHi.Serialization;
+using System;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -24,15 +25,56 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial struct HiHiVector3 {
-        public static implicit operator Godot.Vector3(HiHiVector3 from) => new Godot.Vector3(from.X, from.Y, from.Z);
-        public static implicit operator HiHiVector3(Godot.Vector3 from) => new HiHiVector3(from.X, from.Y, from.Z);
-    }
+    public class Sync<T> : SyncObject {
+        public event Action<T> OnValueChanged;
 
-    public partial struct HiHiQuaternion {
-        public static implicit operator Godot.Quaternion(HiHiQuaternion from) => new Godot.Quaternion(from.X, from.Y, from.Z, from.W);
-        public static implicit operator HiHiQuaternion(Godot.Quaternion from) => new HiHiQuaternion(from.X, from.Y, from.Z, from.W);
+        public T Value {
+            get {
+                return value;
+            }
+            set {
+                AuthorizationCheck();
+
+                Dirty = Dirty
+                    ? true
+                    : !this.value.Equals(value);
+
+                this.value = value;
+
+                if (Dirty) {
+                    OnValueChanged?.Invoke(value);
+                }
+            }
+        }
+        public bool Dirty { get; private set; }
+
+        protected T value;
+
+        public Sync(INetworkObject parent, T value = default) : base(parent) {
+            this.value = value;
+        }
+
+        public override void Update() {
+            if (!Authorized) { return; }
+
+            if (Dirty) {
+                Synchronize();
+            }
+        }
+
+        public override void Serialize(BitBuffer buffer) {
+            value.Serialize(buffer);
+
+            Dirty = false;
+
+            base.Serialize(buffer);
+        }
+
+        public override void Deserialize(BitBuffer buffer) {
+            value = value.Deserialize(buffer);
+            OnValueChanged?.Invoke(value);
+
+            base.Deserialize(buffer);
+        }
     }
 }
-
-#endif

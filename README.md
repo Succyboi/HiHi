@@ -1,12 +1,12 @@
 ![HiHi Color Long](Images/HiHi_Color_Itch_1200w.png) 
 
-`Work in progress`
+`WORK IN PROGRESS`
 
 An engine-agnostic P2P high-level multiplayer solution written in C#.
 
 Made out of a passion for multiplayer games and spite for engine companies' anti-consumer/anti-indie practices. For indies with not a cent to spare on servers.
 
-Still very much a work-in-progress currently. Many features required for the development of proper multiplayer games are currently missing and examples are being worked on.
+Still very much a work-in-progress currently. Many features required for the development of proper multiplayer games are currently missing and examples are being worked on. For progress, check the [roadmap](Roadmap.md).
 
 [Licensed](LICENSE) under the ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4). Need a different license? Contact me @ [stupidplusplus@gmail.com](mailto:stupidplusplus@gmail.com).
 
@@ -152,39 +152,19 @@ HiHi currently includes engine bindings for [Godot](https://godotengine.org/). M
 
 Required bindings for implementation are currently:
 
-- **IHelper** - *Handles the serialization and deserialization of SpawnData.*
-- **INetworkObject** - *Implements*
-- **ISpawnData** - *Serializable object containing information required to spawn objects on remote peers*
+- **Helper** - *Handles the serialization and deserialization of SpawnData.*
+- **NetworkObject** - *Implements networked entities.*
+- **SpawnData** - *Serializable object containing information required to spawn objects on remote peers*
 - **MiscBindings** *(Optional)* - *Provides implicit conversion between HiHi's Vectors, Quaterions, etc and the engine's version of these objects.*
 
 
 
-## Roadmap
+## Transports
 
-- [x] Connections
-- [x] Local discovery
-- [x] Serialization
-- [x] Messaging
-- [x] Networked objects
-- [x] Ownership
-- [x] Synchronized variables
-- [x] RPC's
-- [x] Time synchronization
-- [x] Synchronized transforms
-- [x] Synchronized physics bodies
-- [x] Synchronized spawning & destruction
-- [x] Spawn history synchronization for new connections
-- [x] Abandonment
-- [x] Questions
-- [x] Message allocation optimization
-- [x] Prettify NetworkObject implementation
-- [x] PeerMessage sender header optimization
-- [x] Signaling
-- [x] NAT punching *To be more extensively tested.*
-- [ ] Democracy
-- [ ] Unity Bindings
-- [ ] Example project
-- [ ] Getting started tutorial
+Transports currently included with HiHi are:
+
+- **LiteNetTransport** - A transport based on the [LiteNetLib](https://github.com/RevenantX/LiteNetLib) reliable UDP networking library.
+  - Requires [LiteNetLib 1.1.0](https://github.com/RevenantX/LiteNetLib/releases/tag/v1.1.0).
 
 
 

@@ -26,25 +26,21 @@ using System.Collections.Generic;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi.Signaling {
-    public class UDPSignaler : Signaler {
-        public const int DEFAULT_LOBBY_SIZE = 16;
-
+    public class LiteNetSignaler : Signaler {
         public event Action<SignalerConnectionInfo> OnPeerConnected;
         public event Action<SignalerConnectionInfo> OnPeerLobbied;
         public event Action<SignalerConnectionInfo> OnPeerDisconnected;
 
         public string LocalEndPoint => transport.LocalEndPoint;
         public string LocalAddress => transport.LocalAddress;
-        public int Port => transport.Port;
-        public int LobbySize { get; set; }
+        public int Port => transport.LocalPort;
         public List<SignalerLobby<SignalerConnectionInfo>> Lobbies = new List<SignalerLobby<SignalerConnectionInfo>>();
         public Dictionary<string, SignalerConnectionInfo> Connections = new Dictionary<string, SignalerConnectionInfo>();
 
-        private UDPTransport transport;
+        private LiteNetTransport transport;
 
-        public UDPSignaler(int port, int lobbySize = DEFAULT_LOBBY_SIZE) : base() {
-            this.LobbySize = lobbySize;
-            this.transport = new UDPTransport(port);
+        public LiteNetSignaler(int? port = null) : base() {
+            this.transport = new LiteNetTransport(port ?? HiHiConfiguration.SIGNALER_DEFAULT_PORT);
         }
 
         public override void Start() {
@@ -74,7 +70,7 @@ namespace HiHi.Signaling {
 
         private void ProcessMessage(PeerMessage message) {
             if (!Connections.ContainsKey(message.SenderEndPoint)) {
-                SignalerConnectionInfo info = new SignalerConnectionInfo() { EndPoint = message.SenderEndPoint };
+                SignalerConnectionInfo info = new SignalerConnectionInfo() { RemoteEndPoint = message.SenderEndPoint };
                 Connections.Add(message.SenderEndPoint, info);
                 OnPeerConnected?.Invoke(info);
             }
@@ -84,12 +80,23 @@ namespace HiHi.Signaling {
             switch (message.Type) {
                 case PeerMessageType.VerifiedPeerInfoRequest:
                     connection.Deserialize(message.Buffer);
-                    connection.EndPoint = message.SenderEndPoint;
+                    connection.DesiredLobbySize = message.Buffer.ReadInt();
+                    connection.RemoteEndPoint = message.SenderEndPoint;
                     connection.RegisterHeartbeat();
+                    
                     LobbyConnection(connection);
                     break;
 
                 case PeerMessageType.RemotePeerInfoRequest:
+                    connection.Deserialize(message.Buffer);
+                    connection.DesiredLobbySize = message.Buffer.ReadInt();
+                    connection.RemoteEndPoint = message.SenderEndPoint;
+                    connection.RegisterHeartbeat();
+
+                    if (connection.Lobby == null) {
+                        LobbyConnection(connection);
+                    }
+
                     SendRemotePeerInfo(connection.Lobby);
                     break;
 
@@ -103,7 +110,7 @@ namespace HiHi.Signaling {
 
         private void Disconnect(SignalerConnectionInfo info) {
             info.Lobby?.Remove(info);
-            Connections.Remove(info.EndPoint);
+            Connections.Remove(info.RemoteEndPoint);
 
             OnPeerDisconnected?.Invoke(info);
         }
@@ -145,7 +152,7 @@ namespace HiHi.Signaling {
             }
 
             if (lobby == null) {
-                SignalerLobby<SignalerConnectionInfo> newLobby = new SignalerLobby<SignalerConnectionInfo>(LobbySize, info.ConnectionKey);
+                SignalerLobby<SignalerConnectionInfo> newLobby = new SignalerLobby<SignalerConnectionInfo>(info.DesiredLobbySize, info.ConnectionKey);
                 newLobby.TryAdd(info);
                 Lobbies.Add(newLobby);
                 lobby = newLobby;
@@ -154,13 +161,12 @@ namespace HiHi.Signaling {
             SendVerifiedPeerInfo(info);
 
             info.Lobby = lobby;
-            SendRemotePeerInfo(lobby);
-
             OnPeerLobbied?.Invoke(info);
         }
 
         private void SendVerifiedPeerInfo(SignalerConnectionInfo destinationInfo) {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.VerifiedPeerInfo, default, destinationInfo.EndPoint);
+            PeerMessage message = PeerMessage.Borrow(PeerMessageType.VerifiedPeerInfo, default, destinationInfo.RemoteEndPoint);
+            destinationInfo.Verified = true;
             destinationInfo.Serialize(message.Buffer);
             transport.Send(message);
         }
@@ -176,9 +182,7 @@ namespace HiHi.Signaling {
 
                     SignalerConnectionInfo peer1 = lobby.Connections[c1];
 
-                    PeerMessage message = PeerMessage.Borrow(PeerMessageType.RemotePeerInfo, default, peer0.EndPoint);
-                    peer1.Serialize(message.Buffer);
-                    transport.Send(message);
+                    transport.SendNATIntroduction(peer0.LocalEndPoint, peer0.RemoteEndPoint, peer1.LocalEndPoint, peer1.RemoteEndPoint);
                 }
             }
         }

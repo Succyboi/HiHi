@@ -26,7 +26,7 @@ using System.Collections.Generic;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi.Signaling {
-    public class SignalerLobby<T> where T : PeerInfo {
+    public class SignalerLobby<T> where T : SignalerConnectionInfo {
         protected static Random random = new Random();
 
         public int Size { get; private set; }
@@ -50,11 +50,11 @@ namespace HiHi.Signaling {
         }
 
         public virtual bool TryAdd(T connection) {
-            if(Full ||connection.ConnectionKey != ConnectionKey) {
+            if(Full || Size != connection.DesiredLobbySize ||connection.ConnectionKey != ConnectionKey) {
                 return false;
             }
 
-            connection.Verify(availableIDs.Dequeue(), connection.EndPoint);
+            connection.Verify(availableIDs.Dequeue(), connection.RemoteEndPoint);
             Connections.Add(connection);
             return true;
         }

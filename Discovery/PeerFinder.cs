@@ -1,5 +1,6 @@
 using HiHi.Common;
 using System.Threading;
+using System.Threading.Tasks;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -28,26 +29,30 @@ namespace HiHi.Discovery {
 	public abstract class PeerFinder {
 		public bool Running { get; private set; }
 
-		protected virtual int FindRoutineIntervalMS => 5000;
+		protected virtual int FindRoutineIntervalMS => 1000;
 
-		protected Thread thread;
+		protected Task task;
 		protected ThreadTimer threadTimer;
 
 		public PeerFinder() {
-			thread = new Thread(() => FindRoutine());
 			threadTimer = new ThreadTimer(FindRoutineIntervalMS);
         }
 
 		public virtual void Start() {
+			if (Running) { return; }
+
 			Running = true;
-			thread.Start();
-		}
 
-		public virtual void Stop() {
-			Running = false;
-		}
+            task = Task.Run(() => FindRoutine());
+        }
 
-		public virtual void Find() { }
+        public virtual void Stop() {
+            if (!Running) { return; }
+
+            Running = false;
+        }
+
+        public virtual void Find() { }
 
 		protected virtual void FindRoutine() {
 			while (Running) {

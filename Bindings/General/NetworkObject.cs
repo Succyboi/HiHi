@@ -1,7 +1,5 @@
-﻿#if GODOT
-
-using Godot;
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -27,7 +25,7 @@ using System;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public abstract partial class GodotNetworkObject : Node, INetworkObject {
+    public abstract partial class NetworkObject : INetworkObject {
         #region NetworkObject Implementation
 
         Action INetworkObject.OnOwnershipChanged { get; set; }
@@ -40,34 +38,33 @@ namespace HiHi {
 
         ushort? INetworkObject.ownerID { get; set; }
         NetworkObjectAbandonmentPolicy INetworkObject.abandonmentPolicy { get; set; } = HiHiConfiguration.DEFAULT_ABANDONMENT_POLICY;
-        SyncObject[] INetworkObject.syncObjects { get; set; }
-        byte INetworkObject.syncObjectCount { get; set; }
+        Dictionary<byte, SyncObject> INetworkObject.syncObjects { get; set; }
 
         void INetworkObject.OnRegister() => OnRegister();
         void INetworkObject.OnUnregister() => OnUnregister();
         void INetworkObject.DestroyLocally() => QueueFree();
-        void INetworkObject.Update() => Update();
+        void INetworkObject.Update() => UpdateInstance();
 
         #endregion
 
-        #region Godot
+        #region Members
 
-        public INetworkObject NetworkObject => this as INetworkObject;
+        public INetworkObject Interface => this as INetworkObject;
 
-        public override void _ExitTree() {
-            base._ExitTree();
+        public Action OnOwnershipChanged { get => Interface.OnOwnershipChanged; set => Interface.OnOwnershipChanged = value; }
+        public Action OnAbandonmentPolicyChanged { get => Interface.OnAbandonmentPolicyChanged; set => Interface.OnAbandonmentPolicyChanged = value; }
+        public ISpawnData OriginSpawnData { get => Interface.OriginSpawnData; }
 
-            if (NetworkObject.Registered) {
-                NetworkObject.UnRegister();
-            }
-        }
+        public bool Registered { get => Interface.Registered; }
+        public ushort UniqueID { get => Interface.UniqueID; }
+
+        public ushort? OwnerID { get => Interface.OwnerID; }
+        public NetworkObjectAbandonmentPolicy AbandonmentPolicy { get => Interface.AbandonmentPolicy; set => Interface.AbandonmentPolicy = value; }
 
         protected virtual void OnRegister() { }
         protected virtual void OnUnregister() { }
-        protected virtual void Update() { }
+        protected virtual void UpdateInstance() { }
 
         #endregion
     }
 }
-
-#endif
