@@ -30,6 +30,7 @@
 - [x] PeerNetwork player election
 - [x] Retire UDPTransport
 - [x] NetworkObject Interface properties
+- [x] **Version 0.1**
 - [ ] Update Unity Bindings
 - [ ] INetworkObject reference SyncObject
 - [ ] Include LocalAutoConnect with engine implementations
