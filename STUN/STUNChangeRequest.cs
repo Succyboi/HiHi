@@ -1,12 +1,7 @@
-﻿#if GODOT
-
-using Godot;
-using HiHi.Serialization;
-
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright � 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -26,25 +21,14 @@ using HiHi.Serialization;
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi {
-    public partial class SpawnData : Resource, ISpawnData {
-        public int Index => helper.SpawnDataRegistry.IndexOf(this);
+namespace HiHi.STUN {
+    public class STUNChangeRequest {
+        public bool ChangeIP { get; private set; }
+        public bool ChangePort { get; private set; }
 
-        [Export] public PackedScene Scene;
-
-        private Helper helper => Peer.Helper as Helper;
-
-        void ISpawnData.Serialize(BitBuffer buffer) {
-            buffer.AddByte((byte)Index);
-        }
-
-        NetworkObject ISpawnData.Spawn() {
-            Node spawnedNode = Scene.Instantiate();
-            helper.AddChild(spawnedNode);
-
-            return spawnedNode as NetworkObject;
+        public STUNChangeRequest(bool changeIP, bool changePort) {
+            this.ChangeIP = changeIP;
+            this.ChangePort = changePort;
         }
     }
 }
-
-#endif

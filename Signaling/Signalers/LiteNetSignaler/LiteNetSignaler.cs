@@ -40,7 +40,7 @@ namespace HiHi.Signaling {
         private LiteNetTransport transport;
 
         public LiteNetSignaler(int? port = null) : base() {
-            this.transport = new LiteNetTransport(port ?? HiHiConfiguration.SIGNALER_DEFAULT_PORT);
+            this.transport = new LiteNetTransport(port ?? HiHiConfiguration.SIGNALING_DEFAULT_PORT);
         }
 
         public override void Start() {
@@ -165,7 +165,7 @@ namespace HiHi.Signaling {
         }
 
         private void SendVerifiedPeerInfo(SignalerConnectionInfo destinationInfo) {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.VerifiedPeerInfo, default, destinationInfo.RemoteEndPoint);
+            PeerMessage message = PeerMessage.BorrowOutgoing(PeerMessageType.VerifiedPeerInfo, default, destinationInfo.RemoteEndPoint);
             destinationInfo.Verified = true;
             destinationInfo.Serialize(message.Buffer);
             transport.Send(message);

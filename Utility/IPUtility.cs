@@ -1,8 +1,11 @@
-﻿using System.Net.NetworkInformation;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
+using System.Net.NetworkInformation;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Collections.Generic;
+using System;
+using HiHi.STUN;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -28,16 +31,22 @@ using System.Collections.Generic;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi.Common {
-    public static class HiHiUtility {
-        public const string END_POINT_STRING_TEMPLATE = "{0}:{1}";
+    public static class IPUtility {
+        private const string END_POINT_STRING_TEMPLATE = "{0}:{1}";
+        private const int MAX_PORT_AQUISITION_TRIES = 1000;
 
         private static Dictionary<string, string[]> HostNameCache = new Dictionary<string, string[]>();
         private static Dictionary<string, IPEndPoint> EndPointCache = new Dictionary<string, IPEndPoint>();
 
-        public static int GetFreePort(int preferredPort = 0) {
-            return CheckUDPPortAvailable(preferredPort)
-                ? preferredPort
-                : 0;
+        public static int GetFreePort(int? preferredPort = null) {
+            int port = preferredPort ?? HiHiConfiguration.PREFERRED_PORT;
+            int tries = 0;
+
+            while (!CheckUDPPortAvailable(port) && tries < MAX_PORT_AQUISITION_TRIES) {
+                port++;
+                tries++;
+            }
+            return port;
         }
 
         public static bool CheckUDPPortAvailable(int port) {
@@ -66,7 +75,7 @@ namespace HiHi.Common {
             return true;
         }
 
-        public static bool TryGetLocalAddress(out IPAddress iPaddress) {
+        public static bool TryGetLocalIPv4Address(out IPAddress iPaddress) {
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
             foreach (IPAddress address in host.AddressList) {
                 if (address.AddressFamily == AddressFamily.InterNetwork) {
@@ -79,38 +88,89 @@ namespace HiHi.Common {
             return false;
         }
 
-        public static IPAddress GetLocalAddress() {
-            if (!TryGetLocalAddress(out IPAddress ip)) {
+        public static IPAddress GetLocalIPv4Address() {
+            if (!TryGetLocalIPv4Address(out IPAddress ip)) {
                 throw new HiHiException("Failed to get local IP address.");
             }
 
             return ip;
         }
 
-        public static bool TryGetLocalAddressString(out string iPaddressString) {
-            bool result = TryGetLocalAddress(out IPAddress address);
+        public static bool TryGetLocalIPv6Address(out IPAddress iPaddress) {
+            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (IPAddress address in host.AddressList) {
+                if (address.AddressFamily == AddressFamily.InterNetworkV6) {
+                    iPaddress = address;
+                    return true;
+                }
+            }
+
+            iPaddress = null;
+            return false;
+        }
+
+        public static IPAddress GetLocalIPv6Address() {
+            if (!TryGetLocalIPv6Address(out IPAddress ip)) {
+                throw new HiHiException("Failed to get local IP address.");
+            }
+
+            return ip;
+        }
+
+        public static bool TryGetLocalIPv4AddressString(out string iPaddressString) {
+            bool result = TryGetLocalIPv4Address(out IPAddress address);
             iPaddressString = address?.ToString();
             
             return result;
         }
 
-        public static string  GetLocalAddressString() {
-            if (!TryGetLocalAddressString(out string ip)) {
+        public static string  GetLocalIPv4AddressString() {
+            if (!TryGetLocalIPv4AddressString(out string ip)) {
                 throw new HiHiException("Failed to get local IP address.");
             }
 
             return ip;
         }
 
-        public static string ToEndPointString(this IPEndPoint endpoint) {
-            return ToEndPointString(IPAddressToString(endpoint.Address), endpoint.Port);
+        public static bool TryGetLocalIPv6AddressString(out string iPaddressString) {
+            bool result = TryGetLocalIPv6Address(out IPAddress address);
+            iPaddressString = address?.ToString();
+
+            return result;
         }
 
+        public static string GetLocalIPv6AddressString() {
+            if (!TryGetLocalIPv6AddressString(out string ip)) {
+                throw new HiHiException("Failed to get local IP address.");
+            }
+
+            return ip;
+        }
+
+        public static void RetrieveRemoteIPEndPoint(int port, Action<bool, IPEndPoint> onResult) {
+            Task.Run(() => {
+                try {
+                    if(!STUNUtility.TryRetrieveRemoteIPEndPoint(port, out IPEndPoint externalIPEndPoint, out _)) {
+                        onResult?.Invoke(false, null);
+                        return;
+                    }
+
+                    onResult?.Invoke(true, externalIPEndPoint);
+                    return;
+                }
+                catch {
+                    onResult?.Invoke(false, null);
+                }
+            });
+        }
+
+        public static string ToEndPointString(this IPEndPoint endpoint) => ToEndPointString(endpoint.Address, endpoint.Port);
+        public static string ToEndPointString(IPAddress address, int port) => ToEndPointString(IPAddressToString(address), port);
         public static string ToEndPointString(object address, object port) => string.Format(END_POINT_STRING_TEMPLATE, address, port);
 
         public static string IPAddressToString(IPAddress iPAddress) {
             if (iPAddress.Equals(IPAddress.Any)) {
-                iPAddress = GetLocalAddress();
+                iPAddress = GetLocalIPv4Address();
             }
 
             return iPAddress.ToString();
@@ -135,6 +195,11 @@ namespace HiHi.Common {
         }
 
         public static bool TryParseStringToIPEndPoint(string endPointString, out IPEndPoint endPoint) {
+            if (string.IsNullOrEmpty(endPointString)) {
+                endPoint = null;
+                return false; 
+            }
+
             if (EndPointCache.ContainsKey(endPointString)) {
                 endPoint = EndPointCache[endPointString];
                 return true;
@@ -148,7 +213,7 @@ namespace HiHi.Common {
 
                 if (IPAddress.TryParse(address, out iPAddress)) {
                     if (iPAddress.Equals(IPAddress.Any)) {
-                        iPAddress = GetLocalAddress();
+                        iPAddress = GetLocalIPv4Address();
                     }
 
                     endPoint = new IPEndPoint(iPAddress, port);

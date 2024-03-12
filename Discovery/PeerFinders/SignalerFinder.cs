@@ -30,15 +30,15 @@ namespace HiHi.Discovery {
 
         public string Address { get; set; }
         public int Port { get; set; }
-        public string EndPoint => HiHiUtility.ToEndPointString(Address, Port);
+        public string EndPoint => IPUtility.ToEndPointString(Address, Port);
         public int LobbySize { get; set; }
 
-        protected override int FindRoutineIntervalMS => HiHiConfiguration.SIGNALER_HEARTBEAT_SEND_INTERVAL_MS;
+        protected override int FindRoutineIntervalMS => HiHiConfiguration.SIGNALING_HEARTBEAT_SEND_INTERVAL_MS;
 
         public SignalerFinder(string address, int port, int? lobbySize = null) : base() {
             this.Address = address;
             this.Port = port;
-            this.LobbySize = lobbySize ?? HiHiConfiguration.SIGNALER_DEFAULT_LOBBY_SIZE;
+            this.LobbySize = lobbySize ?? HiHiConfiguration.SIGNALING_DEFAULT_LOBBY_SIZE;
         }
 
         public override void Start() {
@@ -70,7 +70,7 @@ namespace HiHi.Discovery {
         }
 
         public void SendVerificationRequest() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.VerifiedPeerInfoRequest, default, EndPoint);
+            PeerMessage message = PeerMessage.BorrowOutgoing(PeerMessageType.VerifiedPeerInfoRequest, default, EndPoint);
             Peer.Info.Serialize(message.Buffer);
             message.Buffer.AddInt(LobbySize);
 
@@ -78,7 +78,7 @@ namespace HiHi.Discovery {
         }
 
         private void SendRemotePeerInfoRequest() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.RemotePeerInfoRequest, default, EndPoint);
+            PeerMessage message = PeerMessage.BorrowOutgoing(PeerMessageType.RemotePeerInfoRequest, default, EndPoint);
             Peer.Info.Serialize(message.Buffer);
             message.Buffer.AddInt(LobbySize);
 
@@ -86,13 +86,13 @@ namespace HiHi.Discovery {
         }
 
         private void SendHeartBeat() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.HeartBeat, default, EndPoint);
+            PeerMessage message = PeerMessage.BorrowOutgoing(PeerMessageType.HeartBeat, default, EndPoint);
 
             Peer.Transport.Send(message);
         }
 
         private void SendDisconnect() {
-            PeerMessage message = PeerMessage.Borrow(PeerMessageType.Disconnect, default, EndPoint);
+            PeerMessage message = PeerMessage.BorrowOutgoing(PeerMessageType.Disconnect, default, EndPoint);
 
             Peer.Transport.Send(message);
         }

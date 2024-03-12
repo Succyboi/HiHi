@@ -34,17 +34,17 @@ namespace HiHi {
 
         [SerializeField] public NetworkObject Prefab;
 
-        private UnityHelper helper => Peer.Helper as UnityHelper;
+        private Helper helper => Peer.Helper as Helper;
 
         void ISpawnData.Serialize(BitBuffer buffer) {
             buffer.AddByte((byte)Index);
         }
 
-        INetworkObject ISpawnData.Spawn() {
-            UnityNetworkObject spawnedInstance = Instantiate(Prefab);
+        NetworkObject ISpawnData.Spawn() {
+            NetworkObject spawnedInstance = Instantiate(Prefab);
             spawnedInstance.transform.parent = helper.transform;
 
-            return spawnedInstance as INetworkObject;
+            return spawnedInstance as NetworkObject;
         }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using LiteNetLib;
 using HiHi.Common;
+using HiHi.Serialization;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -28,18 +29,13 @@ using HiHi.Common;
  */
 namespace HiHi {
     public class LiteNetTransport : PeerTransport {
-        public const int MAX_PACKET_SIZE = ushort.MaxValue - 8 /*UDP header*/ - 20 /*IPv4 header*/;
+        private const int MAX_PACKET_SIZE = ushort.MaxValue - 8 /*UDP header*/ - 20 /*IPv4 header*/;
 
         public override int MaxPacketSize => MAX_PACKET_SIZE;
-        public override string LocalEndPoint {
-            get {
-                return HiHiUtility.ToEndPointString(LocalAddress, LocalPort);
-            }
-        }
-        public override string LocalAddress => HiHiUtility.GetLocalAddressString();
+        public override string LocalEndPoint => IPUtility.ToEndPointString(LocalAddress, LocalPort);
+        public override string LocalAddress => IPUtility.GetLocalIPv4AddressString();
         public override int LocalPort => client.LocalPort;
-
-        private const int PREFERRED_RECEIVE_PORT = HiHiConfiguration.BROADCAST_RECEIVE_PORT;
+        public override bool FetchRemoteEndPoint => true;
 
         private int preferredPort;
         private EventBasedNetListener listener;
@@ -52,8 +48,8 @@ namespace HiHi {
         private byte[] outgoingBuffer;
         private int outgoingBufferLength;
 
-        public LiteNetTransport(int preferredPort = PREFERRED_RECEIVE_PORT) : base() {
-            this.preferredPort = preferredPort;
+        public LiteNetTransport(int? preferredPort = null) : base() {
+            this.preferredPort = preferredPort ?? HiHiConfiguration.PREFERRED_PORT;
 
             listener = new EventBasedNetListener();
             natListener = new EventBasedNatPunchListener();
@@ -68,8 +64,8 @@ namespace HiHi {
             outgoingBuffer = new byte[MAX_PACKET_SIZE];
         }
 
-        public override void Start() {
-            client.Start(HiHiUtility.GetFreePort(preferredPort));
+        protected override void StartTransport() {
+            client.Start(IPUtility.GetFreePort(preferredPort));
 
             listener.ConnectionRequestEvent += HandleConnectionRequest;
             listener.PeerConnectedEvent += HandlePeerConnected;
@@ -79,10 +75,10 @@ namespace HiHi {
 
             natListener.NatIntroductionSuccess += HandleNatIntroductionSuccess;
 
-            base.Start();
+            base.StartTransport();
         }
 
-        public override void Stop() {
+        protected override void StopTransport() {
             client.Stop();
 
             listener.ConnectionRequestEvent -= HandleConnectionRequest;
@@ -93,8 +89,50 @@ namespace HiHi {
 
             natListener.NatIntroductionSuccess -= HandleNatIntroductionSuccess;
 
-            base.Stop();
+            base.StopTransport();
         }
+
+        #region Connection code
+
+        public override bool TryEndPointToConnectionCode(string endPoint, out string connectionCode) {
+            try {
+                IPEndPoint ipEndPoint = IPUtility.ParseStringToIPEndPoint(endPoint);
+
+                BitBuffer codeBuffer = new BitBuffer();
+                byte[] addressBytes = ipEndPoint.Address.GetAddressBytes();
+                codeBuffer.AddByte((byte)addressBytes.Length);
+                codeBuffer.AddBytes(addressBytes);
+                codeBuffer.AddUShort((ushort)ipEndPoint.Port);
+
+                connectionCode = codeBuffer.ToBase64();
+                return true;
+            }
+            catch {
+                connectionCode = string.Empty;
+                return false;
+            }
+        }
+
+        public override bool TryConnectionCodeToEndPoint(string connectionCode, out string endPoint) {
+            try {
+                BitBuffer endPointBuffer = new BitBuffer().FromBase64(connectionCode);
+                
+                byte[] addressBytes = new byte[endPointBuffer.ReadByte()];
+                endPointBuffer.ReadBytes(addressBytes, addressBytes.Length);
+                
+                IPAddress address = new IPAddress(addressBytes);
+                int port = endPointBuffer.ReadUShort();
+
+                endPoint = IPUtility.ToEndPointString(address, port);
+                return true;
+            }
+            catch {
+                endPoint = string.Empty;
+                return false;
+            }
+        }
+
+        #endregion
 
         #region Receive
 
@@ -128,7 +166,7 @@ namespace HiHi {
 
             if (!PeerMessage.ContainsValidHeader(incomingBuffer)) { return; }
 
-            PeerMessage message = PeerMessage.Borrow(incomingRemoteEndPoint.ToEndPointString(), incomingBuffer, incomingBuffer.Length);
+            PeerMessage message = PeerMessage.BorrowIncoming(incomingRemoteEndPoint.ToEndPointString(), incomingBuffer, incomingBuffer.Length);
             IncomingMessages.Enqueue(message);
 
             reader.Recycle();
@@ -143,7 +181,7 @@ namespace HiHi {
 
             if (!PeerMessage.ContainsValidHeader(incomingBuffer)) { return; }
 
-            PeerMessage message = PeerMessage.Borrow(incomingRemoteEndPoint.ToEndPointString(), incomingBuffer, incomingBuffer.Length);
+            PeerMessage message = PeerMessage.BorrowIncoming(incomingRemoteEndPoint.ToEndPointString(), incomingBuffer, incomingBuffer.Length);
             IncomingMessages.Enqueue(message);
 
             reader.Recycle();
@@ -165,14 +203,14 @@ namespace HiHi {
             byte[] outgoingBuffer = new byte[MAX_PACKET_SIZE];
             int outgoingBufferLength = message.Buffer.ToArray(outgoingBuffer);
 
-            client.SendBroadcast(outgoingBuffer, 0, outgoingBufferLength, HiHiConfiguration.BROADCAST_RECEIVE_PORT);
+            client.SendBroadcast(outgoingBuffer, 0, outgoingBufferLength, HiHiConfiguration.BROADCAST_PORT);
         }
 
         public override void SendNATIntroduction(string internalEndPointA, string externalEndPointA, string internalEndPointB, string externalEndPointB) {
-            if (!HiHiUtility.TryParseStringToIPEndPoint(internalEndPointA, out IPEndPoint internalA)) { return; }
-            if (!HiHiUtility.TryParseStringToIPEndPoint(externalEndPointA, out IPEndPoint externalA)) { return; }
-            if (!HiHiUtility.TryParseStringToIPEndPoint(internalEndPointB, out IPEndPoint internalB)) { return; }
-            if (!HiHiUtility.TryParseStringToIPEndPoint(externalEndPointB, out IPEndPoint externalB)) { return; }
+            if (!IPUtility.TryParseStringToIPEndPoint(internalEndPointA, out IPEndPoint internalA)) { return; }
+            if (!IPUtility.TryParseStringToIPEndPoint(externalEndPointA, out IPEndPoint externalA)) { return; }
+            if (!IPUtility.TryParseStringToIPEndPoint(internalEndPointB, out IPEndPoint internalB)) { return; }
+            if (!IPUtility.TryParseStringToIPEndPoint(externalEndPointB, out IPEndPoint externalB)) { return; }
 
             client.NatPunchModule.NatIntroduce(internalA, externalA, internalB, externalB, string.Empty);
         }
@@ -189,7 +227,7 @@ namespace HiHi {
 
                 if (outgoingBufferLength > MAX_PACKET_SIZE) {
                     message.Return();
-                    throw new HiHiException($"Buffer length exceeded {nameof(MAX_PACKET_SIZE)} ({outgoingBufferLength} vs {MAX_PACKET_SIZE}).");
+                    throw new HiHiException($"Buffer length of type {message.Type} exceeded {nameof(MAX_PACKET_SIZE)} ({outgoingBufferLength} vs {MAX_PACKET_SIZE}).");
                 }
 
                 bool returnMessage = true;
@@ -197,35 +235,42 @@ namespace HiHi {
                     foreach (ushort peerID in PeerNetwork.RemotePeerIDs) {
                         if (!PeerNetwork.Contains(peerID)) { continue; }
 
-                        Send(message, PeerNetwork.GetPeerInfo(peerID).RemoteEndPoint, out returnMessage);
+                        if (!TrySend(PeerNetwork.GetPeerInfo(peerID).LocalEndPoint, out returnMessage)) {
+                            TrySend(PeerNetwork.GetPeerInfo(peerID).RemoteEndPoint, out returnMessage);
+                        }
                     }
                 }
                 else {
-                    Send(message, message.DestinationEndPoint, out returnMessage);
+                    if(!TrySend(message.LocalDestinationEndPoint, out returnMessage)){
+                        TrySend(message.RemoteDestinationEndPoint, out returnMessage);
+                    }
                 }
 
-                if (returnMessage) {
+                if (returnMessage && !message.Expired) {
                     message.Return();
+                    continue;
                 }
+
+                OutgoingMessages.Enqueue(message);
             }
         }
 
-        private void Send(PeerMessage message, string endPoint, out bool returnMessage) {
-            if (!HiHiUtility.TryParseStringToIPEndPoint(endPoint, out outgoingRemoteEndPoint)) {
+        private bool TrySend(string endPoint, out bool returnMessage) {
+            if (!IPUtility.TryParseStringToIPEndPoint(endPoint, out outgoingRemoteEndPoint)) {
                 returnMessage = true;
-                return;
+                return false;
             }
 
             if (!peers.ContainsKey(outgoingRemoteEndPoint)) {
                 client.Connect(outgoingRemoteEndPoint, string.Empty);
 
-                OutgoingMessages.Enqueue(message);
                 returnMessage = false;
-                return;
+                return false;
             }
 
             peers[outgoingRemoteEndPoint].Send(outgoingBuffer, 0, outgoingBufferLength, DeliveryMethod.ReliableOrdered);
             returnMessage = true;
+            return true;
         }
 
         #endregion

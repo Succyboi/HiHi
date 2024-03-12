@@ -37,15 +37,15 @@ namespace HiHi {
         public bool OwnedLocally => parent.OwnedLocally;
         public bool Owned => parent.Owned;
 
-        protected INetworkObject parent { get; set; }
+        protected NetworkObject parent { get; set; }
 
         protected virtual bool RequiresAuthorization => true;
 
-        public SyncObject(INetworkObject parent) {
+        public SyncObject(NetworkObject parent) {
             Register(parent);
         }
 
-        public void Register(INetworkObject parent) {
+        public void Register(NetworkObject parent) {
             if (Registered) { return; }
 
             parent.RegisterSyncObject(this);
@@ -66,7 +66,7 @@ namespace HiHi {
         #region Checks
 
         protected void RegistrationCheck() {
-            if (!Registered) { throw new HiHiException($"{nameof(INetworkObject)} is not registered."); }
+            if (!Registered) { throw new HiHiException($"{nameof(NetworkObject)} is not registered."); }
         }
 
         protected void AuthorizationCheck() {

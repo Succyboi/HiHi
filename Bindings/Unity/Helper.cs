@@ -29,7 +29,7 @@ using UnityEngine;
  */
 namespace HiHi {
 	public class Helper : MonoBehaviour, IHelper {
-		public static UnityHelper Instance { get; private set; }
+		public static Helper Instance { get; private set; }
 
 		[Header("Spawning")]
 		[SerializeField] public SpawnData[] SpawnDataRegistry = new SpawnData[0];
@@ -46,7 +46,7 @@ namespace HiHi {
 			byte spawnDataIndex = buffer.ReadByte();
 
 			if (SpawnDataRegistry.Length <= spawnDataIndex) {
-				throw new HiHiException($"Received spawn message referencing spawn index {spawnDataIndex}. Which doesn't exist in the {nameof(UnityHelper)}.{nameof(SpawnDataRegistry)}. Make sure your spawndata is the same across peers.");
+				throw new HiHiException($"Received spawn message referencing spawn index {spawnDataIndex}. Which doesn't exist in the {nameof(Helper)}.{nameof(SpawnDataRegistry)}. Make sure your spawndata is the same across peers.");
 			}
 
 			return SpawnDataRegistry[spawnDataIndex];

@@ -1,12 +1,10 @@
-﻿#if GODOT
-
-using Godot;
-using HiHi.Serialization;
+using System;
+using System.Linq;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright � 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -26,25 +24,19 @@ using HiHi.Serialization;
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi {
-    public partial class SpawnData : Resource, ISpawnData {
-        public int Index => helper.SpawnDataRegistry.IndexOf(this);
+namespace HiHi.Internal {
+    public static class InternalUtility {
+        public const int MAX_RANDOM_ATTEMPTS = ushort.MaxValue;
+        public static int Next(this Random random, int minValue, int maxValue, params int[] excludingValues) {
+            int tries = 0;
+            int returnValue = random.Next(minValue, maxValue);
+            
+            do {
+                returnValue = random.Next(minValue, maxValue);
+            }
+            while (tries < MAX_RANDOM_ATTEMPTS && excludingValues.Any(v => v == returnValue));
 
-        [Export] public PackedScene Scene;
-
-        private Helper helper => Peer.Helper as Helper;
-
-        void ISpawnData.Serialize(BitBuffer buffer) {
-            buffer.AddByte((byte)Index);
-        }
-
-        NetworkObject ISpawnData.Spawn() {
-            Node spawnedNode = Scene.Instantiate();
-            helper.AddChild(spawnedNode);
-
-            return spawnedNode as NetworkObject;
+            return returnValue;
         }
     }
 }
-
-#endif

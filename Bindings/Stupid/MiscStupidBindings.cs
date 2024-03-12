@@ -1,12 +1,9 @@
-﻿#if GODOT
-
-using Godot;
-using HiHi.Serialization;
+using System;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright � 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -27,24 +24,13 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial class SpawnData : Resource, ISpawnData {
-        public int Index => helper.SpawnDataRegistry.IndexOf(this);
+    public partial struct HiHiVector3 {
+        public static implicit operator Stupid.Vector3(HiHiVector3 from) => new Stupid.Vector3(from.X, from.Y, from.Z);
+        public static implicit operator HiHiVector3(Stupid.Vector3 from) => new HiHiVector3(from.x, from.y, from.z);
+    }
 
-        [Export] public PackedScene Scene;
-
-        private Helper helper => Peer.Helper as Helper;
-
-        void ISpawnData.Serialize(BitBuffer buffer) {
-            buffer.AddByte((byte)Index);
-        }
-
-        NetworkObject ISpawnData.Spawn() {
-            Node spawnedNode = Scene.Instantiate();
-            helper.AddChild(spawnedNode);
-
-            return spawnedNode as NetworkObject;
-        }
+    public partial struct HiHiVector2 {
+        public static implicit operator Stupid.Vector2(HiHiVector2 from) => new Stupid.Vector2(from.X, from.Y);
+        public static implicit operator HiHiVector2(Stupid.Vector2 from) => new HiHiVector2(from.x, from.y);
     }
 }
-
-#endif

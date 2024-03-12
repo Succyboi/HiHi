@@ -1,9 +1,10 @@
-﻿using HiHi.Serialization;
+using HiHi.Serialization;
+using System;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright � 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -16,6 +17,7 @@
  *    b. A non-profit organization
  *    c. An educational institution
  *    d. An organization that seeks shared profit for all of its members, and allows non-members to set the cost of their labor
+
  *    
  * 3. If the User is an organization with owners, then all owners are workers and all workers are owners with equal equity and/or equal vote.
  * 
@@ -24,8 +26,33 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public interface ISpawnData { 
-        void Serialize(BitBuffer buffer);
-        INetworkObject Spawn();
+    public class PeerInfoReference : ISerializable {
+        public PeerInfo Target {
+            get {
+                if (PeerNetwork.TryGetPeerInfo(PeerID, out PeerInfo info)) {
+                    return info;
+                }
+
+                return null;
+            }
+
+            set {
+                PeerID = value?.UniqueID ?? PeerInfo.NULL_ID;
+            }
+        }
+
+        public ushort PeerID { get; set; }
+
+        public PeerInfoReference(PeerInfo target) {
+            this.Target = target;
+        }
+
+        void ISerializable.Serialize(BitBuffer buffer) {
+            buffer.AddUShort(PeerID);
+        }
+
+        void ISerializable.Deserialize(BitBuffer buffer) {
+            PeerID = buffer.ReadUShort();
+        }
     }
 }

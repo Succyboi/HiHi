@@ -35,10 +35,13 @@ namespace HiHi {
             set {
                 AuthorizationCheck();
 
+                int hash = value.GetHashCode();
+
                 Dirty = Dirty
                     ? true
-                    : !this.value.Equals(value);
+                    : this.hash != hash;
 
+                this.hash = hash;
                 this.value = value;
 
                 if (Dirty) {
@@ -49,13 +52,16 @@ namespace HiHi {
         public bool Dirty { get; private set; }
 
         protected T value;
+        protected int hash;
 
-        public Sync(INetworkObject parent, T value = default) : base(parent) {
+        public Sync(NetworkObject parent, T value = default) : base(parent) {
             this.value = value;
         }
 
         public override void Update() {
             if (!Authorized) { return; }
+
+            DirtyCheck();
 
             if (Dirty) {
                 Synchronize();
@@ -75,6 +81,12 @@ namespace HiHi {
             OnValueChanged?.Invoke(value);
 
             base.Deserialize(buffer);
+        }
+
+        private void DirtyCheck() {
+            Dirty = Dirty
+                ? true
+                : hash != value.GetHashCode();
         }
     }
 }

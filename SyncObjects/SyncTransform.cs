@@ -104,7 +104,7 @@ namespace HiHi {
         protected float deserializedTime;
         protected bool interpolate = true;
 
-        public SyncTransform(INetworkObject parent) : base(parent) {}
+        public SyncTransform(NetworkObject parent) : base(parent) {}
 
         public void Set(HiHiVector3? position = null, HiHiQuaternion? rotation = null, HiHiVector3? scale = null) {
             this.Position = position ?? newPosition;

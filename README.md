@@ -1,7 +1,5 @@
 ![HiHi Color Long](Images/HiHi_Color_Itch_1200w.png) 
 
-`WORK IN PROGRESS`
-
 An engine-agnostic P2P high-level multiplayer solution written in C#.
 
 Made out of a passion for multiplayer games and spite for engine companies' anti-consumer/anti-indie practices. For indies with not a cent to spare on servers.
@@ -94,7 +92,7 @@ There is no substitute for physically removing control over objects through the 
 
 ## Concepts
 
-> **Peer**
+> **PeerNetwork**
 >
 > Provides an interface that represents the local peer.
 
@@ -168,9 +166,17 @@ Transports currently included with HiHi are:
 
 
 
+You can of course write your own transport by deriving from `PeerTransport`.
+
+
+
 ## Thanks
 
-Includes code from [Netstack](https://github.com/nxrighthere/NetStack/) licensed under MIT.
+Includes code from [Netstack](https://github.com/nxrighthere/NetStack/) by nxtht & Stanislav Denisov. Licensed under MIT.
+
+Includes code from [STUN Client](https://www.codeproject.com/articles/18492/stun-client) by Ivar Lumi. Licensed under CPOL.
+
+Uses the list of publicly available STUN servers as provided by pradt2's [Always Online: STUN servers](https://github.com/pradt2/always-online-stun/). Licensed under MIT.
 
 [Anti-capitalist software license](https://anticapitalist.software/) maintained by [Ramsey Nasser](https://nas.sr/) & [Everest Pipkin](https://everest-pipkin.com/).
 

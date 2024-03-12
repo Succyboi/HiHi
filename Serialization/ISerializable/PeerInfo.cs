@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
-using HiHi.Common;
 using HiHi.Serialization;
+using HiHi.Internal;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -29,6 +29,8 @@ using HiHi.Serialization;
 namespace HiHi {
 	[Serializable]
 	public partial class PeerInfo : ISerializable {
+		public const ushort NULL_ID = 0;
+
 		private static Random random = new Random();
 
 		public bool ExpectingHeartbeat => Environment.TickCount - HeartbeatTick > HiHiConfiguration.HEARTBEAT_SEND_INTERVAL_MS;
@@ -108,9 +110,18 @@ namespace HiHi {
 		public static PeerInfo CreateLocal() {
 			PeerInfo peerInfo = new PeerInfo();
 
-            peerInfo.SelfAssignedID = (ushort)random.Next(ushort.MaxValue);
+            peerInfo.SelfAssignedID = (ushort)random.Next(ushort.MinValue, ushort.MaxValue, NULL_ID);
             peerInfo.ConnectionKey = Peer.ConnectionKey;
             peerInfo.LocalEndPoint = Peer.Transport.LocalEndPoint;
+			peerInfo.RemoteEndPoint = Peer.Transport.RemoteEndPoint;
+
+			return peerInfo;
+        }
+
+		public static PeerInfo RefreshLocal(PeerInfo peerInfo) {
+            peerInfo.ConnectionKey = Peer.ConnectionKey;
+            peerInfo.LocalEndPoint = Peer.Transport.LocalEndPoint;
+            peerInfo.RemoteEndPoint = Peer.Transport.RemoteEndPoint;
 
 			return peerInfo;
         }

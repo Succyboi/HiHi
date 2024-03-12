@@ -32,7 +32,7 @@ namespace HiHi {
         T2 p2;
         T3 p3;
 
-        public RPC(INetworkObject parent) : base(parent) { }
+        public RPC(NetworkObject parent) : base(parent) { }
 
         public void Invoke(T0 p0, T1 p1, T2 p2, T3 p3, ushort? targetPeerID = null) {
             if (!Authorized) { throw new HiHiException($"Attempted to invoke {nameof(RPC)} while {nameof(RPC)}.{nameof(Authorized)} is false."); }
@@ -73,7 +73,7 @@ namespace HiHi {
         T1 p1;
         T2 p2;
 
-        public RPC(INetworkObject parent) : base(parent) { }
+        public RPC(NetworkObject parent) : base(parent) { }
 
         public void Invoke(T0 p0, T1 p1, T2 p2, ushort? targetPeerID = null) {
             if (!Authorized) { throw new HiHiException($"Attempted to invoke {nameof(RPC)} while {nameof(RPC)}.{nameof(Authorized)} is false."); }
@@ -110,7 +110,7 @@ namespace HiHi {
         T0 p0;
         T1 p1;
 
-        public RPC(INetworkObject parent) : base(parent) { }
+        public RPC(NetworkObject parent) : base(parent) { }
 
         public void Invoke(T0 p0, T1 p1, ushort? targetPeerID = null) {
             if (!Authorized) { throw new HiHiException($"Attempted to invoke {nameof(RPC)} while {nameof(RPC)}.{nameof(Authorized)} is false."); }
@@ -143,7 +143,7 @@ namespace HiHi {
     public class RPC<T0> : RPCBase {
         T0 p0;
 
-        public RPC(INetworkObject parent) : base(parent) { }
+        public RPC(NetworkObject parent) : base(parent) { }
 
         public void Invoke(T0 p0, ushort? targetPeerID = null) {
             if (!Authorized) { throw new HiHiException($"Attempted to invoke {nameof(RPC)} while {nameof(RPC)}.{nameof(Authorized)} is false."); }
@@ -171,7 +171,7 @@ namespace HiHi {
     }
 
     public class RPC : RPCBase {
-        public RPC(INetworkObject parent) : base(parent) { }
+        public RPC(NetworkObject parent) : base(parent) { }
 
         public void Invoke(ushort? targetPeerID = null) {
             if (!Authorized) { throw new HiHiException($"Attempted to invoke {nameof(RPC)} while {nameof(RPC)}.{nameof(Authorized)} is false."); }
@@ -204,7 +204,7 @@ namespace HiHi {
 
         protected Delegate action;
 
-        public RPCBase(INetworkObject parent) : base(parent) { }
+        public RPCBase(NetworkObject parent) : base(parent) { }
 
         public override void Update() { }
     }

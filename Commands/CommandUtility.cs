@@ -26,6 +26,7 @@
 namespace HiHi.Commands {
     public static class CommandUtility {
         public static bool Initialized => initialized;
+        public static List<Command> Commands => commands;
 
         private static List<Command> commands = new List<Command>();
         private static bool initialized = false;

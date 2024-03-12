@@ -1,7 +1,7 @@
-﻿/*
+/*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright � 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -21,10 +21,16 @@
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-namespace HiHi {
-    public enum NetworkObjectAbandonmentPolicy {
-        RemainOwnedRandomly = 0,
-        BecomeShared = 1,
-        Destroy = 2,
+namespace HiHi.STUN {
+    public class STUNErrorCode {
+        public int Code { get; private set; }
+        public string Reason { get; private set; }
+
+        public STUNErrorCode(int code, string reasonText) {
+            this.Code = code;
+            this.Reason = reasonText;
+        }
+
+        public override string ToString() => $"STUN ERROR {Code}: {Reason}";
     }
 }

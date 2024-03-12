@@ -33,10 +33,12 @@ namespace HiHi {
 		public override void _ExitTree() {
 			base._ExitTree();
 
-			if (Interface.Registered) {
-				Interface.UnRegister();
+			if (Registered) {
+				UnRegister();
 			}
 		}
+
+		protected void DestroyLocally() => QueueFree();
 
 		#endregion
 	}

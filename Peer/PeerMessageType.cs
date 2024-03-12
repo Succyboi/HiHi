@@ -24,35 +24,35 @@
 namespace HiHi {
     public enum PeerMessageType {
         // Never transmitted
-        Unknown = -1,                           // Unknown.
+        Unknown = -1,                               // Unknown.
 
         // Centralized (Not implemented in Peer)
-        VerifiedPeerInfoRequest = 0,            // Requests contained PeerInfo to be verified by a central authority (i.e. a signaler).
-        VerifiedPeerInfo = 1,                   // Contains the local peer's PeerInfo, verified by a central authority.
-        RemotePeerInfoRequest = 2,              // Requests remote PeerInfo.
-        RemotePeerInfo = 3,                     // Contains a remote peer's PeerInfo.
+        VerifiedPeerInfoRequest = 0,                // Requests contained PeerInfo to be verified by a central authority (i.e. a signaler).
+        VerifiedPeerInfo = 1,                       // Contains the local peer's PeerInfo, verified by a central authority.
+        RemotePeerInfoRequest = 2,                  // Requests remote PeerInfo.
+        RemotePeerInfo = 3,                         // Contains a remote peer's PeerInfo.
 
         // Connection
-        Connect = 4,                            // Introductory hello message. Contains PeerInfo, not neccesarily from the peer that sent it.
-        Disconnect = 5,                         // Terminating goodbye message.
-        HeartBeat = 6,                          // Required to maintian the connection.
-        PeerNetwork = 7,                        // Contains the serialized contents of PeerNetwork.
-        Time = 8,                               // Contains information to sync time.
+        Connect = 4,                                // Introductory hello message. Contains PeerInfo, not neccesarily from the peer that sent it.
+        Disconnect = 5,                             // Terminating goodbye message.
+        HeartBeat = 6,                              // Required to maintian the connection.
+        PeerNetwork = 7,                            // Contains the serialized contents of PeerNetwork.
+        Time = 8,                                   // Contains information to sync time.
 
         // High level
-        PingRequest = 9,                        // Requests a ping response, contains a timestamp.
-        PingResponse = 10,                      // Contains the ping from the local peer to the peer that sent the message.
-        Log = 11,                               // Contains a string. For debug and general communication purposes.
+        PingRequest = 9,                            // Requests a ping response, contains a timestamp.
+        PingResponse = 10,                          // Contains the ping from the local peer to the peer that sent the message.
+        Log = 11,                                   // Contains a string. For debug and general communication purposes.
 
         // NetworkObject
-        ObjectSpawn = 12,                       // Spawns a NetworkObject.
-        ObjectDestroy = 13,                     // Destroys a NetworkObject.
-        ObjectOwnershipChange = 14,             // Changes a NetworkObject's owner.
-        ObjectAbandoned = 15,                   // Abandons a NetworkObject.
-        ObjectAbandonmentPolicyChange = 16,     // Changes a NetworkObject's AbandonmentPolicy.
+        ObjectSpawn = 12,                           // Spawns a NetworkObject.
+        ObjectDestroy = 13,                         // Destroys a NetworkObject.
+        ObjectOwnershipChange = 14,                 // Changes a NetworkObject's owner.
+        ObjectAbandoned = 15,                       // Abandons a NetworkObject.
+        ObjectAbandonmentPolicyChange = 16,         // Changes a NetworkObject's AbandonmentPolicy.
 
         // SyncObject
-        SOData = 17,                            // Contains data to be interpreted by a SyncObject implementation.
+        SOData = 17,                                // Contains data to be interpreted by a SyncObject implementation.
 
         // 18,
         // 19,

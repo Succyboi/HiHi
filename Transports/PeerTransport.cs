@@ -3,6 +3,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
+using HiHi.STUN;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -31,16 +33,24 @@ namespace HiHi {
     public abstract class PeerTransport {
         public const int THREAD_TIMER_INTERVAL_MS = 5;
 
+        private const string REMOTE_ENDPOINT_RETRIEVAL_FAILED_STRING = "Failed";
+
         public bool Running { get; private set; } = false;
         public bool ReceiveBroadcast { get; set; } = false;
         public bool IncomingMessagesAvailable => !IncomingMessages.IsEmpty;
         public ConcurrentQueue<PeerMessage> IncomingMessages { get; private set; }
         public ConcurrentQueue<PeerMessage> OutgoingMessages { get; private set; }
-        public virtual int MaxPacketSize => 0;
         public abstract string LocalEndPoint { get; }
         public abstract string LocalAddress { get; }
         public abstract int LocalPort { get; }
+        public abstract bool FetchRemoteEndPoint { get; }
+        public virtual int MaxPacketSize => 0;
+        public virtual string RemoteEndPoint => IPUtility.ToEndPointString(RemoteAddress, RemotePort);
+        public virtual string RemoteAddress => remoteAddress;
+        public virtual int RemotePort => remotePort;
 
+        private string remoteAddress;
+        private int remotePort;
         private Thread incomingThread;
         private ThreadTimer incomingThreadTimer = new ThreadTimer(THREAD_TIMER_INTERVAL_MS);
         private Thread outgoingThread;
@@ -54,22 +64,20 @@ namespace HiHi {
             outgoingThread = new Thread(() => OutgoingRoutine());
         }
 
-        public virtual void Start() {
+        public async void Start() {
             if (Running) { return; }
 
-            IncomingMessages.Clear();
-            OutgoingMessages.Clear();
+            if(FetchRemoteEndPoint) {
+                await FetchRemoteEndPointAsync(IPUtility.GetFreePort());
+            }
 
-            Running = true;
-
-            incomingThread.Start();
-            outgoingThread.Start();
+            StartTransport();
         }
 
-        public virtual void Stop() {
+        public void Stop() {
             if (!Running) { return; }
 
-            Running = false;
+            StopTransport();
         }
 
         public void Send(PeerMessage message) {
@@ -90,6 +98,30 @@ namespace HiHi {
             }
 
             return message;
+        }
+
+        public virtual bool TryEndPointToConnectionCode(string endPoint, out string connectionCode) {
+            connectionCode = endPoint;
+            return true;
+        }
+
+        public virtual bool TryConnectionCodeToEndPoint(string connectionCode, out string endPoint) {
+            endPoint = connectionCode;
+            return true;
+        }
+
+        protected virtual void StartTransport() {
+            IncomingMessages.Clear();
+            OutgoingMessages.Clear();
+
+            Running = true;
+
+            incomingThread.Start();
+            outgoingThread.Start();
+        }
+
+        protected virtual void StopTransport() {
+            Running = false;
         }
 
         protected abstract void ReceiveIncomingMessages();
@@ -113,6 +145,27 @@ namespace HiHi {
                 SendOutgoingMessages();
 
                 outgoingThreadTimer.Sleep();
+            }
+        }
+
+        protected async Task FetchRemoteEndPointAsync(int fromPort) {
+            IPEndPoint remoteEndPoint = null;
+            string failReason = string.Empty;
+
+            if (await Task.Run(() => STUNUtility.TryRetrieveRemoteIPEndPoint(fromPort, out remoteEndPoint, out failReason))) {
+                try {
+                    remoteAddress = remoteEndPoint?.Address.ToString() ?? string.Empty;
+                    remotePort = remoteEndPoint?.Port ?? fromPort;
+                    PeerInfo.RefreshLocal(Peer.Info);
+                }
+                catch (Exception ex) { 
+                    UnityEngine.Debug.LogError($"STUN Exception {ex}");
+                }
+            }
+            else {
+                remoteAddress = $"{REMOTE_ENDPOINT_RETRIEVAL_FAILED_STRING}: {failReason}";
+                remotePort = 0;
+                PeerInfo.RefreshLocal(Peer.Info);
             }
         }
     }

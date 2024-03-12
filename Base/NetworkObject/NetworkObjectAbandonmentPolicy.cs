@@ -1,9 +1,4 @@
-﻿#if GODOT
-
-using Godot;
-using HiHi.Serialization;
-
-/*
+﻿/*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
  * Copyright © 2023 Pelle Bruinsma
@@ -27,24 +22,9 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial class SpawnData : Resource, ISpawnData {
-        public int Index => helper.SpawnDataRegistry.IndexOf(this);
-
-        [Export] public PackedScene Scene;
-
-        private Helper helper => Peer.Helper as Helper;
-
-        void ISpawnData.Serialize(BitBuffer buffer) {
-            buffer.AddByte((byte)Index);
-        }
-
-        NetworkObject ISpawnData.Spawn() {
-            Node spawnedNode = Scene.Instantiate();
-            helper.AddChild(spawnedNode);
-
-            return spawnedNode as NetworkObject;
-        }
+    public enum NetworkObjectAbandonmentPolicy {
+        RemainOwnedRandomly = 0,                    // Becomes owned by a random Peer in the network.
+        BecomeShared = 1,                           // Becomes shared.
+        Destroy = 2,                                // Is destroyed.
     }
 }
-
-#endif

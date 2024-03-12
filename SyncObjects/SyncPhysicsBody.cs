@@ -61,7 +61,7 @@ namespace HiHi {
         protected HiHiVector3 newLinearVelocity;
         protected HiHiVector3 newAngularVelocity;
 
-        public SyncPhysicsBody(INetworkObject parent) : base(parent) { }
+        public SyncPhysicsBody(NetworkObject parent) : base(parent) { }
 
         public void Set(HiHiVector3? position = null, HiHiQuaternion? rotation = null, HiHiVector3? scale = null, HiHiVector3? velocity = null, HiHiVector3? angularVelocity = null) {
             this.Position = position ?? newPosition;

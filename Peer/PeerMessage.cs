@@ -1,4 +1,5 @@
 ﻿using HiHi.Serialization;
+using System;
 using System.Collections.Concurrent;
 
 /*
@@ -34,18 +35,28 @@ namespace HiHi {
 
         public static ConcurrentBag<PeerMessage> AvailableMessages = new ConcurrentBag<PeerMessage>();
 
+        protected static float time => Environment.TickCount / (float)TimeSpan.TicksPerMillisecond;
+
         public PeerMessageType Type { get; private set; }
         public ushort SenderPeerID { get; private set; }
-        public string DestinationEndPoint {
-            get => destinationEndPoint;
-            set => destinationEndPoint = value;
+        public string RemoteDestinationEndPoint {
+            get => remoteDestinationEndPoint;
+            set => remoteDestinationEndPoint = value;
+        }
+        public string LocalDestinationEndPoint {
+            get => localDestinationEndPoint;
+            set => localDestinationEndPoint = value;
         }
         public string SenderEndPoint => senderEndPoint;
-        public bool DestinationAll => destinationEndPoint.Equals(string.Empty);
+        public bool DestinationAll => string.IsNullOrEmpty(remoteDestinationEndPoint)
+            && string.IsNullOrEmpty(localDestinationEndPoint);
+        public bool Expired => borrowedTime - time > HiHiConfiguration.HEARTBEAT_TIMEOUT_INTERVAL_MS;
         public BitBuffer Buffer { get; private set; }
 
-        protected string destinationEndPoint;
+        protected string remoteDestinationEndPoint;
+        protected string localDestinationEndPoint;
         protected string senderEndPoint;
+        protected float borrowedTime;
 
         static PeerMessage() {
             for(int m = 0; m < DEFAULT_INITIAL_AVAILABLE_MESSAGES; m++) {
@@ -59,29 +70,20 @@ namespace HiHi {
             Clear();
         }
 
-        public static PeerMessage Borrow(PeerMessageType type, ushort senderPeerID, string destinationPeerEndPoint) {
+        public static PeerMessage BorrowOutgoing(PeerMessageType type, ushort senderPeerID, string remoteDestinationEndPoint, string localDesinationEndPoint = null) {
             PeerMessage message = Borrow();
 
             message.Type = type;
             message.SenderPeerID = senderPeerID;
-            message.destinationEndPoint = destinationPeerEndPoint;
+            message.remoteDestinationEndPoint = remoteDestinationEndPoint;
+            message.localDestinationEndPoint = localDesinationEndPoint;
 
             message.Buffer.Add(PEER_MESSAGE_TYPE_BITS, (uint)type);
 
             return message;
         }
 
-        public static PeerMessage Borrow(byte[] data, int length) {
-            PeerMessage message = Borrow();
-
-            message.Buffer.FromArray(data, length);
-
-            message.Type = (PeerMessageType)message.Buffer.Read(PEER_MESSAGE_TYPE_BITS);
-
-            return message;
-        }
-
-        public static PeerMessage Borrow(string endPointString, byte[] data, int length) {
+        public static PeerMessage BorrowIncoming(string endPointString, byte[] data, int length) {
             PeerMessage message = Borrow();
 
             message.senderEndPoint = endPointString;
@@ -104,6 +106,8 @@ namespace HiHi {
                 message = new PeerMessage();
             }
 
+            message.borrowedTime = time;
+
             return message;
         }
 
@@ -122,7 +126,8 @@ namespace HiHi {
         protected void Clear() {
             Type = PeerMessageType.Unknown;
             SenderPeerID = default;
-            destinationEndPoint = string.Empty;
+            remoteDestinationEndPoint = string.Empty;
+            localDestinationEndPoint = string.Empty;
             senderEndPoint = string.Empty;
             Buffer.Clear();
         }

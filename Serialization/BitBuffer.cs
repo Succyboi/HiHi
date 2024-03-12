@@ -1,10 +1,10 @@
 ﻿using HiHi.Common;
 using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 #if ENABLE_MONO || ENABLE_IL2CPP
-	using UnityEngine.Assertions;
+using UnityEngine.Assertions;
 #endif
 
 /*
@@ -99,7 +99,13 @@ namespace HiHi.Serialization {
 
         public bool IsFinished {
             get {
-                return nextPosition == readPosition;
+                return readPosition >= nextPosition;
+            }
+        }
+
+        public int RemainingBits {
+            get {
+                return nextPosition - readPosition;
             }
         }
 
@@ -132,6 +138,32 @@ namespace HiHi.Serialization {
             chunks[index] = (uint)result;
             chunks[index + 1] = (uint)(result >> 32);
             nextPosition += numBits;
+
+            return this;
+        }
+
+        [MethodImpl(256)]
+        public BitBuffer Insert(int position, int numBits, uint value) {
+#if ENABLE_MONO || ENABLE_IL2CPP
+            Assert.IsFalse(numBits < 0); // Pushing negative bits
+            Assert.IsFalse(numBits > 32); // Pushing too many bits
+#else
+            Debug.Assert(!(numBits < 0));
+            Debug.Assert(!(numBits > 32));
+#endif
+
+            int index = position >> 5;
+            int used = position & 0x0000001F;
+
+            if ((index + 1) >= chunks.Length)
+                ExpandArray();
+
+            ulong chunkMask = ((1UL << used) - 1);
+            ulong scratch = chunks[index] & chunkMask;
+            ulong result = scratch | ((ulong)value << used);
+
+            chunks[index] = (uint)result;
+            chunks[index + 1] = (uint)(result >> 32);
 
             return this;
         }
@@ -195,7 +227,8 @@ namespace HiHi.Serialization {
             return Length;
         }
 
-        public void FromArray(byte[] data, int length) {
+        [MethodImpl(256)]
+        public BitBuffer FromArray(byte[] data, int length) {
             int numChunks = (length / 4) + 1;
 
             if (chunks.Length < numChunks)
@@ -224,6 +257,8 @@ namespace HiHi.Serialization {
 
             nextPosition = ((length - 1) * 8) + (positionInByte - 1);
             readPosition = 0;
+
+            return this;
         }
 
 #if NETSTACK_SPAN
@@ -285,6 +320,21 @@ namespace HiHi.Serialization {
 			}
 #endif
 
+        public string ToBase64() {
+            byte[] data = new byte[Length];
+            ToArray(data);
+
+            return Convert.ToBase64String(data).Trim('=');
+        }
+
+        [MethodImpl(256)]
+        public BitBuffer FromBase64(string hexData) {
+            byte[] data = Convert.FromBase64String(hexData);
+            FromArray(data, data.Length);
+
+            return this;
+        }
+
         [MethodImpl(256)]
         public BitBuffer AddBool(bool value) {
             Add(1, value ? 1U : 0U);
@@ -310,6 +360,29 @@ namespace HiHi.Serialization {
         }
 
         [MethodImpl(256)]
+        public BitBuffer AddBytes(byte[] bytes) => AddBytes(bytes, bytes.Length);
+
+        [MethodImpl(256)]
+        public BitBuffer AddBytes(byte[] bytes, int length) => AddBytes(bytes, length, 0);
+
+        [MethodImpl(256)]
+        public BitBuffer AddBytes(byte[] bytes, int length, int offset) {
+            if (bytes == null || offset + length > bytes.Length) {
+                if (CanThrow) {
+                    throw new ArgumentException($"{nameof(bytes)}");
+                }
+
+                return this;
+            }
+
+            for (int b = offset; b < length - offset; b++) {
+                Add(8, bytes[b]);
+            }
+
+            return this;
+        }
+
+        [MethodImpl(256)]
         public byte ReadByte() {
             return (byte)Read(8);
         }
@@ -317,6 +390,31 @@ namespace HiHi.Serialization {
         [MethodImpl(256)]
         public byte PeekByte() {
             return (byte)Peek(8);
+        }
+
+        [MethodImpl(256)]
+        public byte[] ReadBytes(byte[] bytes, int length) {
+            if (bytes == null || length >bytes.Length) {
+                if (CanThrow) {
+                    throw new ArgumentException($"{nameof(bytes)}");
+                }
+
+                return bytes;
+            }
+
+            for (int b = 0; b < length; b++) {
+                bytes[b] = (byte)Read(8);
+            }
+
+            return bytes;
+        }
+
+        [MethodImpl(256)]
+        public byte[] PeekBytes(byte[] bytes, int length) {
+            bytes = ReadBytes(bytes, length);
+            readPosition -= 8 * length;
+
+            return bytes;
         }
 
         [MethodImpl(256)]

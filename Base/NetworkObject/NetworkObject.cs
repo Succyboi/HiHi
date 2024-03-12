@@ -1,5 +1,4 @@
 ﻿using HiHi.Common;
-using HiHi.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,14 +27,26 @@ using System.Linq;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public interface INetworkObject {
-        public static Dictionary<ushort, INetworkObject> Instances = new Dictionary<ushort, INetworkObject>();
-        
-        protected static Queue<ushort> availableIDs = new Queue<ushort>();
-        protected static IHelper helper => Peer.Helper;
+    public partial class NetworkObject {
+        public const ushort NULL_ID = 0;
+
+        #region Static
+
+        public static bool Exists(ushort uniqueID) => instances.ContainsKey(uniqueID);
+        public static NetworkObject GetByID(ushort uniqueID) => instances[uniqueID];
+        public static bool TryGetByID(ushort uniqueID, out NetworkObject instance) => instances.TryGetValue(uniqueID, out instance);
+        public static IEnumerable<ushort> IDs => instances.Keys;
+
+        private static Dictionary<ushort, NetworkObject> instances = new Dictionary<ushort, NetworkObject>();
+        private static Queue<ushort> availableIDs = new Queue<ushort>();
+        private static IHelper helper => Peer.Helper;
+
+        #endregion
 
         public Action OnOwnershipChanged { get; set; }
         public Action OnAbandonmentPolicyChanged { get; set; }
+        public Action OnRegistered { get; set; }
+        public Action OnUnregistered { get; set; }
 
         public ISpawnData OriginSpawnData { get; protected set; }
         public bool Registered { get; protected set; }
@@ -76,16 +87,18 @@ namespace HiHi {
                 return syncObjects;
             }
         }
-        protected ushort? ownerID { get; set; }
-        protected NetworkObjectAbandonmentPolicy abandonmentPolicy { get; set; }
-        protected Dictionary<byte, SyncObject> syncObjects { get; set; }
-        protected static Queue<byte> availableSyncObjectIDs { get; set; }
-        protected static Random random;
+        private ushort? ownerID { get; set; }
+        private NetworkObjectAbandonmentPolicy abandonmentPolicy { get; set; }
+        private Dictionary<byte, SyncObject> syncObjects { get; set; }
+        private static Queue<byte> availableSyncObjectIDs { get; set; }
+        private static Random random;
 
-        static INetworkObject() {
+        static NetworkObject() {
             random = new Random();
 
             for(ushort i = 0; i < ushort.MaxValue; i++) {
+                if (i == NULL_ID) { continue; }
+                
                 availableIDs.Enqueue(i);
             }
 
@@ -93,14 +106,14 @@ namespace HiHi {
         }
 
         public static void UpdateInstances() {
-            foreach (ushort uniqueID in Instances.Keys) {
-                Instances[uniqueID].Update();
-                Instances[uniqueID].UpdateSyncObjects();
+            foreach (ushort uniqueID in instances.Keys) {
+                instances[uniqueID].OnUpdate();
+                instances[uniqueID].UpdateSyncObjects();
             }
         }
 
         public static bool IsIDAvailable(ushort ID) {
-            return !Instances.ContainsKey(ID);
+            return !instances.ContainsKey(ID);
         }
 
         public ushort Register(ushort? proposedUniqueID = null, ushort? ownerID = null, ISpawnData originSpawnData = null) {
@@ -118,10 +131,11 @@ namespace HiHi {
                 availableSyncObjectIDs.Enqueue(i);
             }
 
-            Instances.Add(UniqueID, this);
+            instances.Add(UniqueID, this);
             Registered = true;
 
             OnRegister();
+            OnRegistered?.Invoke();
 
             return UniqueID;
         }
@@ -135,16 +149,17 @@ namespace HiHi {
 
             availableIDs.Enqueue(UniqueID);
 
-            Instances.Remove(UniqueID);
+            instances.Remove(UniqueID);
             Registered = false;
 
             OnUnregister();
+            OnUnregistered?.Invoke();
         }
 
         #region Spawning
 
-        public static T SyncSpawn<T>(ISpawnData spawnData, ushort? ownerID = null) where T : class, INetworkObject {
-            INetworkObject spawnedObject = spawnData.Spawn();
+        public static T SyncSpawn<T>(ISpawnData spawnData, ushort? ownerID = null) where T : NetworkObject {
+            NetworkObject spawnedObject = spawnData.Spawn();
             spawnedObject.Register(null, ownerID, spawnData);
 
             SendSpawn(spawnData, spawnedObject.UniqueID, ownerID);
@@ -169,9 +184,9 @@ namespace HiHi {
             ushort? ownerID = message.Buffer.ReadUShort();
             ownerID = shared ? null : ownerID;
 
-            if (Instances.ContainsKey(uniqueID)) { return; }
+            if (instances.ContainsKey(uniqueID)) { return; }
 
-            INetworkObject spawnedObject = spawnData.Spawn();
+            NetworkObject spawnedObject = spawnData.Spawn();
             spawnedObject.Register(uniqueID, ownerID, spawnData);
         }
 
@@ -179,7 +194,7 @@ namespace HiHi {
 
         #region Destroying
 
-        public static void SyncDestroy(INetworkObject target) {
+        public static void SyncDestroy(NetworkObject target) {
             target.RegistrationCheck();
             target.AuthorizationCheck();
 
@@ -200,7 +215,7 @@ namespace HiHi {
 
             ExistenceCheck(uniqueID);
 
-            INetworkObject targetObject = Instances[uniqueID];
+            NetworkObject targetObject = instances[uniqueID];
 
             if (targetObject.Owned && targetObject.OwnerID != message.SenderPeerID) { return; }
 
@@ -230,7 +245,7 @@ namespace HiHi {
 
             ExistenceCheck(uniqueID);
 
-            INetworkObject targetObject = Instances[uniqueID];
+            NetworkObject targetObject = instances[uniqueID];
 
             if (targetObject.Owned && targetObject.OwnerID != message.SenderPeerID) { return; }
 
@@ -274,7 +289,7 @@ namespace HiHi {
 
             ExistenceCheck(uniqueID);
 
-            INetworkObject targetObject = Instances[uniqueID];
+            NetworkObject targetObject = instances[uniqueID];
 
             if (targetObject.Owned && targetObject.OwnerID != message.SenderPeerID) { return; }
 
@@ -295,7 +310,7 @@ namespace HiHi {
 
             ExistenceCheck(uniqueID);
 
-            INetworkObject targetObject = Instances[uniqueID];
+            NetworkObject targetObject = instances[uniqueID];
 
             if (targetObject.Owned && targetObject.OwnerID != message.SenderPeerID) { return; }
 
@@ -335,7 +350,6 @@ namespace HiHi {
 
         #endregion
 
-
         #region SyncObjects
 
         public static void ReceiveSyncObjectData(PeerMessage message) {
@@ -344,7 +358,7 @@ namespace HiHi {
 
             ExistenceCheck(parentUniqueID);
 
-            INetworkObject parent = Instances[parentUniqueID];
+            NetworkObject parent = instances[parentUniqueID];
 
             if (parent.Owned && parent.OwnerID != message.SenderPeerID) { return; }
 
@@ -378,11 +392,11 @@ namespace HiHi {
         #region Checks
 
         protected static void ExistenceCheck(ushort uniqueID) { 
-            if (!Instances.ContainsKey(uniqueID)) { throw new HiHiException($"Received a {nameof(PeerMessageType)} targeting a {nameof(INetworkObject)} with ID {uniqueID}, which doesn't exist locally."); } 
+            if (!instances.ContainsKey(uniqueID)) { throw new HiHiException($"Received a {nameof(PeerMessageType)} targeting a {nameof(NetworkObject)} with ID {uniqueID}, which doesn't exist locally."); } 
         }
 
         protected void RegistrationCheck() {
-            if(!Registered) { throw new HiHiException($"{nameof(INetworkObject)} is not registered."); }
+            if(!Registered) { throw new HiHiException($"{nameof(NetworkObject)} is not registered."); }
         }
 
         protected void AuthorizationCheck() {
@@ -391,12 +405,11 @@ namespace HiHi {
 
         #endregion
 
-        #region Abstract
+        #region Virtual & Abstract
 
-        protected abstract void OnRegister();
-        protected abstract void OnUnregister();
-        protected abstract void Update();
-        protected abstract void DestroyLocally();
+        protected virtual void OnRegister() { }
+        protected virtual void OnUnregister() { }
+        protected virtual void OnUpdate() { }
 
         #endregion
     }

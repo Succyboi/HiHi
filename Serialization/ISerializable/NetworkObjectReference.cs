@@ -1,12 +1,10 @@
-﻿#if GODOT
-
-using Godot;
 using HiHi.Serialization;
+using System;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
  *
- * Copyright © 2023 Pelle Bruinsma
+ * Copyright � 2023 Pelle Bruinsma
  * 
  * This is anti-capitalist software, released for free use by individuals and organizations that do not operate by capitalist principles.
  *
@@ -19,6 +17,7 @@ using HiHi.Serialization;
  *    b. A non-profit organization
  *    c. An educational institution
  *    d. An organization that seeks shared profit for all of its members, and allows non-members to set the cost of their labor
+
  *    
  * 3. If the User is an organization with owners, then all owners are workers and all workers are owners with equal equity and/or equal vote.
  * 
@@ -27,24 +26,33 @@ using HiHi.Serialization;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public partial class SpawnData : Resource, ISpawnData {
-        public int Index => helper.SpawnDataRegistry.IndexOf(this);
+    public class NetworkObjectReference : ISerializable {
+        public NetworkObject Target {
+            get {
+                if (NetworkObject.TryGetByID(NetworkObjectID, out NetworkObject target)) {
+                    return target;
+                }
 
-        [Export] public PackedScene Scene;
+                return null;
+            }
 
-        private Helper helper => Peer.Helper as Helper;
-
-        void ISpawnData.Serialize(BitBuffer buffer) {
-            buffer.AddByte((byte)Index);
+            set {
+                NetworkObjectID = value?.UniqueID ?? NetworkObject.NULL_ID;
+            }
         }
 
-        NetworkObject ISpawnData.Spawn() {
-            Node spawnedNode = Scene.Instantiate();
-            helper.AddChild(spawnedNode);
+        public ushort NetworkObjectID { get; set; }
 
-            return spawnedNode as NetworkObject;
+        public NetworkObjectReference(NetworkObject target = null) {
+            this.Target = target;
+        }
+
+        void ISerializable.Serialize(BitBuffer buffer) {
+            buffer.AddUShort(NetworkObjectID);
+        }
+
+        void ISerializable.Deserialize(BitBuffer buffer) {
+            NetworkObjectID = buffer.ReadUShort();
         }
     }
 }
-
-#endif

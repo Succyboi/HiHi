@@ -57,7 +57,7 @@ namespace HiHi {
         private Func<T> question;
         private Dictionary<ushort, T?> answers = new Dictionary<ushort, T?>();
 
-        public Question(INetworkObject parent, Func<T> question) : base(parent) {
+        public Question(NetworkObject parent, Func<T> question) : base(parent) {
             this.question = question;
         }
 

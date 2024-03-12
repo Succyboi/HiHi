@@ -60,7 +60,7 @@ namespace HiHi {
         private Func<T> question;
         private Dictionary<ushort, T?> answers = new Dictionary<ushort, T?>();
 
-        public Democracy(INetworkObject parent, Func<T> question) : base(parent) {
+        public Democracy(NetworkObject parent, Func<T> question) : base(parent) {
             this.question = question;
         }
 

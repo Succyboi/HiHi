@@ -27,14 +27,16 @@ using System;
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 namespace HiHi {
-    public abstract partial class NetworkObject : MonoBehaviour, INetworkObject {
+    public abstract partial class NetworkObject : MonoBehaviour {
         #region Unity
 
         public virtual void OnDestroy() {
-            if (Interface.Registered) {
-                Interface.UnRegister();
+            if (Registered) {
+                UnRegister();
             }
         }
+
+        protected void DestroyLocally() => Destroy(gameObject);
 
         #endregion
     }

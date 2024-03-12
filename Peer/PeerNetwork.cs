@@ -43,9 +43,22 @@ namespace HiHi {
             connections = new ConcurrentDictionary<ushort, PeerInfo>();
         }
 
-        public static PeerInfo GetPeerInfo(ushort ID) => ID == Peer.Info.UniqueID
-            ? Peer.Info
-            : connections[ID];
+        public static PeerInfo GetPeerInfo(ushort ID) {
+            if (TryGetPeerInfo(ID, out PeerInfo info)) {
+                return info;
+            }
+
+            throw new KeyNotFoundException($"PeerInfo with ID \"{ID}\" was not found in the network.");
+        }
+
+        public static bool TryGetPeerInfo(ushort ID, out PeerInfo info) {
+            if (ID == Peer.Info.UniqueID) {
+                info = Peer.Info;
+                return true; 
+            }
+
+            return connections.TryGetValue(ID, out info);
+        }
 
         public static bool TryAddConnection(PeerInfo info) {
             if (Contains(info.UniqueID)) { return false; }
@@ -70,6 +83,11 @@ namespace HiHi {
         public static bool TryGetIDFromEndPointString(string endpoint, out ushort id) {
             foreach(KeyValuePair<ushort, PeerInfo> connection in connections) {
                 if (string.Equals(connection.Value.RemoteEndPoint, endpoint, StringComparison.OrdinalIgnoreCase)) {
+                    id = connection.Key;
+                    return true;
+                }
+
+                if (string.Equals(connection.Value.LocalEndPoint, endpoint, StringComparison.OrdinalIgnoreCase)) {
                     id = connection.Key;
                     return true;
                 }

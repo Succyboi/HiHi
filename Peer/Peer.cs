@@ -1,7 +1,8 @@
 ﻿using HiHi.Commands;
-using HiHi.Common;
 using HiHi.Serialization;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 /*
  * ANTI-CAPITALIST SOFTWARE LICENSE (v 1.4)
@@ -33,8 +34,8 @@ namespace HiHi {
         public static string ConnectionKey {
             get => connectionKey;
             set {
-                connectionKey = value;
-                
+                connectionKey = $"HiHiV{HiHiConfiguration.Version} {value}";
+
                 if (Info != null) {
                     Info.ConnectionKey = connectionKey;
                 }
@@ -49,12 +50,13 @@ namespace HiHi {
         public static bool Initialized { get; private set; }
         public static bool Connected => PeerNetwork.Connected;
         public static bool AcceptingConnections { get; set; } = true;
+        public static bool AcceptingUnverifiedInfo { get; set; } = true;
 
         public static PeerInfo Info { get; private set; }
         public static PeerTransport Transport { get; private set; }
         public static IHelper Helper { get; private set; }
 
-        private static string connectionKey = DEFAULT_CONNECTION_KEY;
+        private static string connectionKey = $"HiHiV{HiHiConfiguration.Version} {DEFAULT_CONNECTION_KEY}";
 
         public static void Initialize(PeerTransport transport, IHelper helper) {
             if (Initialized) { return; }
@@ -99,32 +101,44 @@ namespace HiHi {
                 message.Return();
             }
 
-            INetworkObject.UpdateInstances();
+            NetworkObject.UpdateInstances();
+
+            IEnumerable<PeerInfo> pingablePeers = PeerNetwork.RemotePeerIDs
+                .Select(p => PeerNetwork.GetPeerInfo(p))
+                .Where(p => p.ShouldRequestPing)
+                .Take(HiHiConfiguration.PING_BUDGET_PER_TICK);
+            foreach (PeerInfo peerInfo in pingablePeers) {
+                PeerMessage pingMessage = NewMessage(PeerMessageType.PingRequest);
+                pingMessage.Buffer.AddUShort(HalfPrecision.Quantize(HiHiTime.RealTime));
+                Transport.Send(pingMessage);
+
+                peerInfo.RegisterPingRequest();
+            }
 
             foreach (ushort peerID in PeerNetwork.RemotePeerIDs) {
-                if (PeerNetwork.GetPeerInfo(peerID).ShouldRequestPing) {
-                    PeerMessage pingMessage = NewMessage(PeerMessageType.PingRequest);
-                    pingMessage.Buffer.AddUShort(HalfPrecision.Quantize(HiHiTime.RealTime));
-                    Transport.Send(pingMessage);
-
-                    PeerNetwork.GetPeerInfo(peerID).RegisterPingRequest();
-                }
-
                 if (PeerNetwork.GetPeerInfo(peerID).HeartbeatTimedOut) {
                     Disconnect(peerID, PeerDisconnectReason.TimedOut);
                 }
             }
         }
 
-        public static PeerMessage NewMessage(PeerMessageType messageType, string destinationEndPoint) => PeerMessage.Borrow(messageType, 
+        public static PeerMessage NewMessage(PeerMessageType messageType, string destinationEndPoint) => PeerMessage.BorrowOutgoing(messageType, 
             Info.UniqueID, 
             destinationEndPoint);
-        public static PeerMessage NewMessage(PeerMessageType messageType, ushort? destinationPeerID = null) => PeerMessage.Borrow(messageType, 
+        public static PeerMessage NewMessage(PeerMessageType messageType, ushort? destinationPeerID = null) => PeerMessage.BorrowOutgoing(messageType, 
             Info.UniqueID, 
-            destinationPeerID == null ? string.Empty : PeerNetwork.GetPeerInfo(destinationPeerID ?? default).RemoteEndPoint);
+            destinationPeerID == null ? string.Empty : PeerNetwork.GetPeerInfo(destinationPeerID ?? default).RemoteEndPoint,
+            destinationPeerID == null ? string.Empty : PeerNetwork.GetPeerInfo(destinationPeerID ?? default).LocalEndPoint);
 
         #region Outgoing
 
+        public static bool TryConnectViaCode(string connectionCode) {
+            if (!Transport.TryConnectionCodeToEndPoint(connectionCode, out string endPoint)) { return false; } 
+            
+            Connect(endPoint);
+            return true;
+        }
+        
         public static void Connect(string destinationEndPoint) {
             if (!Initialized) { return; }
             if (!AcceptingConnections) { return; }
@@ -137,7 +151,7 @@ namespace HiHi {
         public static void Connect(PeerInfo destinationInfo, PeerConnectReason reason = PeerConnectReason.Unknown) {
             if (!Initialized) { return; }
             if (!AcceptingConnections) { return; }
-            if (!destinationInfo.Verified) { return; }
+            if (!AcceptingUnverifiedInfo && !destinationInfo.Verified) { return; }
             if (destinationInfo.ConnectionKey != ConnectionKey) { return; }
 
             if (!PeerNetwork.TryAddConnection(destinationInfo)) { return; }
@@ -158,12 +172,12 @@ namespace HiHi {
             Transport.Send(timeMessage);
 
             // Spawn messages
-            foreach (ushort id in INetworkObject.Instances.Keys) {
-                INetworkObject networkObject = INetworkObject.Instances[id];
+            foreach (ushort id in NetworkObject.IDs) {
+                NetworkObject networkObject = NetworkObject.GetByID(id);
 
                 if (networkObject.OriginSpawnData == null) { continue; }
 
-                INetworkObject.SendSpawn(networkObject.OriginSpawnData, networkObject.UniqueID, networkObject.Owned ? networkObject.OwnerID : null);
+                NetworkObject.SendSpawn(networkObject.OriginSpawnData, networkObject.UniqueID, networkObject.Owned ? networkObject.OwnerID : null);
             }
 
             OnConnect?.Invoke(destinationInfo.UniqueID, reason);
@@ -181,8 +195,8 @@ namespace HiHi {
             OnDisconnect?.Invoke(destinationPeerID, reason);
 
             // Change ownership of objects owned by the disconnected peer
-            foreach (ushort id in INetworkObject.Instances.Keys) {
-                INetworkObject networkObject = INetworkObject.Instances[id];
+            foreach (ushort id in NetworkObject.IDs) {
+                NetworkObject networkObject = NetworkObject.GetByID(id);
 
                 if(!networkObject.Owned || networkObject.OwnerID != destinationPeerID) { continue; }
 
@@ -275,27 +289,27 @@ namespace HiHi {
                     break;
 
                 case PeerMessageType.SOData:
-                    INetworkObject.ReceiveSyncObjectData(message);
+                    NetworkObject.ReceiveSyncObjectData(message);
                     break;
 
                 case PeerMessageType.ObjectSpawn:
-                    INetworkObject.ReceiveSpawn(message);
+                    NetworkObject.ReceiveSpawn(message);
                     break;
 
                 case PeerMessageType.ObjectDestroy:
-                    INetworkObject.ReceiveDestroy(message);
+                    NetworkObject.ReceiveDestroy(message);
                     break;
 
                 case PeerMessageType.ObjectOwnershipChange:
-                    INetworkObject.ReceiveOwnershipChange(message);
+                    NetworkObject.ReceiveOwnershipChange(message);
                     break;
 
                 case PeerMessageType.ObjectAbandoned:
-                    INetworkObject.ReceiveAbandonment(message);
+                    NetworkObject.ReceiveAbandonment(message);
                     break;
 
                 case PeerMessageType.ObjectAbandonmentPolicyChange:
-                    INetworkObject.ReceiveAbandonmentPolicyChange(message);
+                    NetworkObject.ReceiveAbandonmentPolicyChange(message);
                     break;
 
                 case PeerMessageType.Unknown:
@@ -342,6 +356,12 @@ namespace HiHi {
         #region Misc
 
         private static void Log(ushort peerID, string message) => OnLog?.Invoke(peerID, message);
+
+        public static string GetConnectionCode(this PeerInfo peerInfo) {
+            Transport.TryEndPointToConnectionCode(peerInfo.RemoteEndPoint, out string connectionCode);
+
+            return connectionCode;
+        }
 
         #endregion
     }

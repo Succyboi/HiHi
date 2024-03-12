@@ -29,7 +29,6 @@ namespace HiHi.Discovery {
 
         public override void Start() {
             Peer.Transport.ReceiveBroadcast = true;
-            Peer.Info.Verify(Peer.Info.SelfAssignedID, string.IsNullOrEmpty(Peer.Info.RemoteEndPoint) ? Peer.Transport.LocalEndPoint : Peer.Info.RemoteEndPoint);
 
             base.Start();
         }
@@ -38,14 +37,9 @@ namespace HiHi.Discovery {
             base.Stop();
 
             Peer.Transport.ReceiveBroadcast = false;
-            Peer.Info.RemoteEndPoint = string.Empty;
         }
 
         public override void Find() {
-            if (!Peer.Info.Verified) { return; }
-
-            if (Peer.Connected) { return; }
-
             PeerMessage message = Peer.NewMessage(PeerMessageType.Connect);
             Peer.Info.Serialize(message.Buffer);
             Peer.Transport.SendBroadcast(message);
