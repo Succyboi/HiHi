@@ -72,6 +72,7 @@ This document roughly outlines added features per version and potential future a
 - [x] STUN IPv6
 - [x] Dissolve core folder
 - [x] Ping bugetting
+- [ ] Guid based networkobjects
 - [ ] SyncSet, SyncList, SyncDictionary
 - [ ] Consider separating signaling and p2p code
 - [ ] Signaling rework
